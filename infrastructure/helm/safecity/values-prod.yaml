@@ -1,0 +1,190 @@
+# ─────────────────────────────────────────────────────────────
+# SafeCity — PRODUCTION overlay
+#
+# Deployed only by the intended `deploy-production.yml` workflow on a `v*` tag,
+# through a protected GitHub environment with manual approval.
+#
+# Differences from staging that matter:
+#   - 3 replicas per web tier, stricter PDBs (minAvailable: 2)
+#   - autoscaling enabled with a higher ceiling
+#   - secret.existingSecret, so nothing is set via --set and nothing lands in
+#     Helm release history or CI logs
+#   - multi-AZ database and Redis endpoints
+# ─────────────────────────────────────────────────────────────
+
+global:
+  environment: prod
+  imageRegistry: ""
+
+commonLabels:
+  cost-center: safecity-prod
+
+serviceAccount:
+  create: true
+  annotations: {}
+  #  annotations:
+  #    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/safecity-prod-irsa
+
+config:
+  djangoSettingsModule: config.settings.prod
+  debug: "false"
+  # `config.settings.prod` asserts ALLOWED_HOSTS is non-empty at import time, so
+  # a missing value fails the rollout immediately instead of serving with an
+  # empty host allowlist.
+  allowedHosts: "safecity.example.com"
+  csrfTrustedOrigins: "https://safecity.example.com"
+  corsAllowedOrigins: "https://safecity.example.com"
+
+  # ── REPLACE with your production endpoints (RDS Multi-AZ, ElastiCache) ──
+  dbHost: "safecity-prod-db.xxxxxxxxxxxx.ap-south-1.rds.amazonaws.com"
+  dbPort: "5432"
+  dbConnMaxAge: "600"
+  redisUrl: "redis://safecity-prod-redis.xxxxxx.0001.aps1.cache.amazonaws.com:6379/0"
+  # ────────────────────────────────────────────────────────────────────────
+
+  mediaBackend: s3
+  awsS3Bucket: "safecity-prod-media"
+  awsS3Region: ap-south-1
+  publicUrl: "https://safecity.example.com"
+
+  # Optional integrations. Enable deliberately, one at a time, after validating
+  # the adapter in staging. Keep AI on `mock` unless the privacy review for
+  # external calls has been signed off.
+  aiProvider: mock
+  malwareScanProvider: mock
+  captchaProvider: mock
+  emailHost: ""
+  emailPort: "587"
+  defaultFromEmail: "safecity@example.com"
+
+  allowAnonymousReports: "true"
+  emergencyModeEnabled: "true"
+  publicCoordJitterMeters: "150"
+
+  rateLimitAnonPerMin: "30"
+  rateLimitIncidentsPerHour: "5"
+
+backend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    # With 3 replicas, tolerating one voluntary disruption keeps the API up
+    # during node drains.
+    minAvailable: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+frontend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 96Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+celeryWorker:
+  replicaCount: 2
+  concurrency: 4
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1024Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  terminationGracePeriodSeconds: 120
+
+# Still exactly one. Two beat schedulers would double-count SLA breaches and
+# raise duplicate escalations.
+celeryBeat:
+  replicaCount: 1
+
+migration:
+  enabled: true
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "110m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # On EKS with the AWS Load Balancer Controller, replace the nginx
+    # annotations above with the ALB equivalents:
+    #   alb.ingress.kubernetes.io/scheme: internet-facing
+    #   alb.ingress.kubernetes.io/target-type: ip
+    #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<region>:<account>:certificate/<id>
+    #   alb.ingress.kubernetes.io/load-balancer-attributes: >-
+    #     idle_timeout.timeout_seconds=3600
+    # The long idle timeout is required for the WebSocket endpoint.
+  hosts:
+    - host: safecity.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /ws
+          pathType: Prefix
+          service: backend
+        - path: /admin
+          pathType: Prefix
+          service: backend
+        - path: /
+          pathType: Prefix
+          service: frontend
+  tls:
+    - secretName: safecity-prod-tls
+      hosts:
+        - safecity.example.com
+
+networkPolicy:
+  enabled: true
+  # Tighten egress to the managed services' VPC CIDRs so a compromised pod
+  # cannot reach arbitrary destinations on the database port.
+  databaseEgressCIDR: []
+  #  - 10.0.0.0/16
+  redisEgressCIDR: []
+  #  - 10.0.0.0/16
+
+secret:
+  create: false
+  # Secrets live in AWS Secrets Manager and are synced by External Secrets
+  # Operator, so no secret material is passed through Helm or CI at all.
+  existingSecret: "safecity-prod-secrets"

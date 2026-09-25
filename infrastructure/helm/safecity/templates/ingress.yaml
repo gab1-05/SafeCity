@@ -1,0 +1,48 @@
+{{- if .Values.ingress.enabled -}}
+{{- /*
+  Ingress with per-path routing.
+
+  /api, /ws and /admin go straight to the backend Service, and everything else
+  to the frontend. This matters: the SPA image's nginx.conf proxies /api/ and
+  /ws/ to a hardcoded upstream named `backend`, which does not exist in
+  Kubernetes (the Service is `<release>-safecity-backend`). Routing those paths
+  at the Ingress means that baked-in proxy_pass is never exercised.
+
+  WebSocket needs no special Ingress configuration on nginx-ingress (upgrade
+  headers pass through). On ALB, stickiness and idle timeout matter more than
+  path routing — see docs/KUBERNETES-AND-AWS.md.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "safecity.fullname" . }}
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ include "safecity.fullname" $ }}-{{ .service }}
+                port:
+                  name: http
+          {{- end }}
+    {{- end }}
+{{- end }}

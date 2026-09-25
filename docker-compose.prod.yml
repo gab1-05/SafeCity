@@ -1,0 +1,108 @@
+version: "3.9"
+
+# SafeCity — production-like local stack (built images, no source mounts).
+# Usage:
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
+#   docker compose -f docker-compose.prod.yml exec backend python manage.py seed_demo_data
+
+x-backend-env: &backend-env
+  DJANGO_SETTINGS_MODULE: config.settings.prod
+  SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (64+ random chars)}
+  DEBUG: "false"
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+  SECURE_SSL_REDIRECT: "false"  # TLS terminates at a real proxy in production
+  POSTGRES_DB: ${POSTGRES_DB:-safecity}
+  POSTGRES_USER: ${POSTGRES_USER:-safecity}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+  DB_HOST: db
+  DB_PORT: "5432"
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  MEDIA_BACKEND: ${MEDIA_BACKEND:-local}
+  AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+  AWS_S3_REGION: ${AWS_S3_REGION:-ap-south-1}
+  EMAIL_HOST: ${EMAIL_HOST:-}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-safecity}
+      POSTGRES_USER: ${POSTGRES_USER:-safecity}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-safecity}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Do not expose 5432 publicly in production deployments.
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      # Deliberately a different default host port from the dev stack so both
+      # can run side by side. The SPA reaches the API through the frontend
+      # nginx proxy (backend:8000) rather than this published port.
+      - "${BACKEND_PORT:-9080}:8000"
+    environment:
+      <<: *backend-env
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery:
+    build: ./backend
+    restart: unless-stopped
+    command: celery -A config worker -l info --concurrency=2
+    environment:
+      <<: *backend-env
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    build: ./backend
+    restart: unless-stopped
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8088}:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  media_data:

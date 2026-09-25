@@ -1,0 +1,155 @@
+{{- if .Values.backend.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "safecity.fullname" . }}-backend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+  {{- with .Values.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    {{- toYaml .Values.backend.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "backend") | nindent 8 }}
+      annotations:
+        # Roll pods when configuration changes. Without these, editing a
+        # ConfigMap or Secret would leave running pods on stale values.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.secret.create (not .Values.secret.existingSecret) }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret-django.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "safecity.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      # Give in-flight requests time to drain before the process is killed.
+      terminationGracePeriodSeconds: {{ .Values.backend.terminationGracePeriodSeconds }}
+      containers:
+        - name: backend
+          image: {{ include "safecity.image" (dict "root" . "image" .Values.backend.image) | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          # Daphne serves HTTP and WebSocket (Channels) from one process.
+          command: ["daphne", "-b", "0.0.0.0", "-p", {{ .Values.backend.containerPort | quote }}, "config.asgi:application"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.containerPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "safecity.fullname" . }}-config
+          env:
+            {{- include "safecity.secretEnv" . | nindent 12 }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- with .Values.backend.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.backend.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.backend.probes.startup.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.backend.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.backend.probes.startup.failureThreshold }}
+          {{- end }}
+          {{- if .Values.backend.probes.liveness.enabled }}
+          # Liveness intentionally hits /api/health/, which checks no external
+          # dependency. Probing /api/readiness/ here would restart healthy pods
+          # during a database blip and turn an outage into a crash loop.
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.backend.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.backend.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.backend.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.backend.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.backend.probes.readiness.enabled }}
+          # Readiness checks DB + Redis + storage and returns 503 when degraded,
+          # so the pod is removed from the Service without being restarted.
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.backend.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.backend.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.backend.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.backend.probes.readiness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.backend.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "safecity.tmpVolumeMount" . | nindent 12 }}
+            - name: media
+              mountPath: /app/media
+            {{- with .Values.backend.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- include "safecity.tmpVolume" . | nindent 8 }}
+        # Local media scratch space. With MEDIA_BACKEND=s3 the object store is
+        # the system of record and this is only used for staging uploads.
+        - name: media
+          emptyDir: {}
+        {{- with .Values.backend.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "safecity.fullname" . }}-backend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+  {{- with .Values.backend.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.backend.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.backend.service.port }}
+      targetPort: {{ .Values.backend.service.targetPort }}
+      protocol: TCP
+  selector:
+    {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "backend") | nindent 4 }}
+{{- end }}

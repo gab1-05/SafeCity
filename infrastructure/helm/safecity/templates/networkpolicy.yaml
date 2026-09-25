@@ -1,0 +1,169 @@
+{{- if .Values.networkPolicy.enabled -}}
+{{- /*
+  Default-deny with explicit allows.
+
+  The baseline policy denies all ingress and egress for every pod in this
+  release, then each component is opened up only as far as it needs:
+
+    ingress-controller -> frontend            (:80)
+    ingress-controller -> backend             (:8000, API + WebSocket)
+    frontend           -> backend             (:8000, for the baked-in nginx proxy)
+    backend/celery     -> PostgreSQL          (config.dbPort)
+    backend/celery     -> Redis               (:6379)
+    everything         -> DNS                 (:53)
+    backend/celery     -> HTTPS               (:443, S3 / AI / Secrets Manager)
+    backend            -> SMTP                (:587, optional)
+
+  Note on what NetworkPolicy does NOT do: it is not an authentication or
+  authorization control, and it only works with a CNI that enforces it
+  (Calico, Cilium, AWS VPC CNI network policies). On a cluster whose CNI
+  ignores these objects they apply cleanly and enforce nothing.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "safecity.fullname" . }}-default-deny
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "safecity.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+{{/* DNS egress must be allowed or every name lookup fails, which is the most
+     common way a default-deny policy breaks a working deployment. */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "safecity.fullname" . }}-allow-dns
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "safecity.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+{{/* Ingress controller -> frontend */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "safecity.fullname" . }}-frontend-ingress
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Any namespace: the ingress controller usually lives outside the release
+    # namespace. Narrow this with a namespaceSelector in a locked-down cluster.
+    - ports:
+        - protocol: TCP
+          port: {{ if .Values.frontend.unprivileged }}{{ .Values.frontend.unprivilegedContainerPort }}{{ else }}{{ .Values.frontend.containerPort }}{{ end }}
+---
+{{/* frontend -> backend (the baked-in nginx proxy_pass) */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "safecity.fullname" . }}-backend-ingress
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "frontend") | nindent 14 }}
+        # Also allow the ingress controller to reach /api, /ws and /admin
+        # directly, since the chart routes those paths at the Ingress.
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.containerPort }}
+---
+{{/* backend / celery -> PostgreSQL, Redis, HTTPS, SMTP */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "safecity.fullname" . }}-workload-egress
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/instance
+        operator: In
+        values:
+          - {{ .Release.Name }}
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - backend
+          - celery-worker
+          - celery-beat
+  policyTypes:
+    - Egress
+  egress:
+    # PostgreSQL
+    - to:
+        {{- if .Values.networkPolicy.databaseEgressCIDR }}
+        {{- range .Values.networkPolicy.databaseEgressCIDR }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+        {{- else }}
+        - ipBlock:
+            cidr: 0.0.0.0/0
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.config.dbPort }}
+    # Redis (cache, Celery broker, Channels layer)
+    - to:
+        {{- if .Values.networkPolicy.redisEgressCIDR }}
+        {{- range .Values.networkPolicy.redisEgressCIDR }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+        {{- else }}
+        - ipBlock:
+            cidr: 0.0.0.0/0
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 6379
+    # HTTPS out: S3, Secrets Manager, optional AI provider
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    # SMTP, only when an email host is configured
+    {{- if .Values.config.emailHost }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: {{ .Values.config.emailPort | default "587" }}
+    {{- end }}
+{{- end }}

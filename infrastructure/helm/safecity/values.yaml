@@ -1,0 +1,469 @@
+# ─────────────────────────────────────────────────────────────
+# SafeCity Helm chart — default values
+#
+# These defaults are deliberately conservative and production-shaped.
+# Environment overlays (values-dev.yaml, values-staging.yaml, values-prod.yaml)
+# override sizes, replica counts, hostnames and ingress.
+#
+# NOTHING here contains a real secret. Secret material must be supplied by the
+# environment overlay, an existing Secret (secret.existingSecret), or an
+# external secret manager. See templates/secret-django.yaml.
+# ─────────────────────────────────────────────────────────────
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Applied to every resource. The SDP brief requires project, environment,
+# owner and cost centre on all resources.
+commonLabels: {}
+additionalLabels: {}
+
+global:
+  # dev | staging | prod — used in labels and surfaced to the app.
+  environment: dev
+  # Prefix for all image repositories, e.g. "123456789012.dkr.ecr.ap-south-1.amazonaws.com".
+  imageRegistry: ""
+  imagePullSecrets: []
+  #  imagePullSecrets:
+  #    - name: ecr-pull-secret
+
+# ── Service account (IRSA for S3 + Secrets Manager) ───────────
+serviceAccount:
+  create: true
+  # Name to use. Generated from the release name when empty.
+  name: ""
+  annotations: {}
+  #  annotations:
+  #    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/safecity-dev-irsa
+  automountServiceAccountToken: true
+
+# ── Backend (Django + DRF, served by Daphne: HTTP + WebSocket) ─
+backend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: safecity-backend
+    tag: ""            # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+
+  # Daphne serves HTTP and WebSocket on one port (config.asgi:application).
+  containerPort: 8000
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+    annotations: {}
+
+  # Requests/limits are set for a modest SDP workload (<10k incidents/month).
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+
+  # Probes are intentionally split: liveness must NOT depend on the database,
+  # otherwise a transient DB outage turns into a cluster-wide crash loop.
+  probes:
+    liveness:
+      enabled: true
+      path: /api/health/
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /api/readiness/
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    startup:
+      enabled: true
+      path: /api/health/
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      failureThreshold: 30
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    # Requires an adapter for the Celery queue-depth metric; enable only when
+    # the metric is actually available in the cluster.
+    targetQueueDepth: ""
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  # Nginx/ALB sits in front, so Terminate is correct.
+  terminationGracePeriodSeconds: 30
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+# ── Frontend (built SPA served by nginx) ──────────────────────
+frontend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: safecity-frontend
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  containerPort: 80
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    annotations: {}
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 192Mi
+
+  probes:
+    liveness:
+      enabled: true
+      path: /
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 75
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  terminationGracePeriodSeconds: 15
+
+  # ── Hardening trade-off ─────────────────────────────────────────────
+  # The image built by frontend/Dockerfile is `nginx:1.27-alpine`, whose master
+  # process runs as root in order to bind :80 and read its config. Running that
+  # image as a non-root user fails at startup.
+  #
+  # unprivileged: false  -> ship as-is. Root master, capability set reduced to
+  #                         just NET_BIND_SERVICE, read-only root filesystem.
+  # unprivileged: true   -> requires an image rebuilt on nginx-unprivileged,
+  #                         listening on 8080 and running as uid 101. Prefer
+  #                         this for any real deployment.
+  # See docs/KUBERNETES-AND-AWS.md for the rebuild recipe.
+  unprivileged: false
+
+  podSecurityContext:
+    runAsNonRoot: false
+    fsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+      # Retained solely so the root master process can bind the privileged
+      # port :80. Remove when unprivileged: true (port 8080 needs no capability).
+      add:
+        - NET_BIND_SERVICE
+
+  # Used instead of the two blocks above when unprivileged: true.
+  unprivilegedSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+  unprivilegedPodSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+  unprivilegedContainerPort: 8080
+
+  # Writable paths required by nginx with a read-only root filesystem.
+  writablePaths:
+    - name: nginx-cache
+      mountPath: /var/cache/nginx
+    - name: nginx-run
+      mountPath: /var/run
+    - name: nginx-tmp
+      mountPath: /tmp
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+# ── Celery worker ─────────────────────────────────────────────
+celeryWorker:
+  enabled: true
+  replicaCount: 1
+  concurrency: 2
+  # Prefork is the right default for CPU/IO-bound Django tasks. Switch to
+  # "eventlet"/"gevent" only if you add many long-lived blocking calls.
+  pool: prefork
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 320Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: false
+
+  terminationGracePeriodSeconds: 60
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# ── Celery beat (scheduler) ───────────────────────────────────
+celeryBeat:
+  enabled: true
+  # Exactly one replica. Multiple beat processes duplicate every scheduled job,
+  # which would double-count SLA breaches and escalations.
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 300m
+      memory: 384Mi
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+
+  # Django's database scheduler writes to the DB, not the filesystem, so the
+  # single-row guard is a Recreate strategy rather than a lock.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# ── Migration job ─────────────────────────────────────────────
+# Schema changes are a separate, observable step. The application never
+# auto-migrates on pod start.
+migration:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  # Helm hook annotations make this run during install/upgrade before the
+  # application rollout is considered successful.
+  hookAnnotations: {}
+  podAnnotations: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+
+# ── Ingress ───────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  #  For EKS with the AWS Load Balancer Controller:
+  #  annotations:
+  #    alb.ingress.kubernetes.io/scheme: internet-facing
+  #    alb.ingress.kubernetes.io/target-type: ip
+  #    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+  #    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...
+  hosts:
+    - host: safecity.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /admin
+          pathType: Prefix
+          service: backend
+        - path: /ws
+          pathType: Prefix
+          service: backend
+  tls: []
+  #  tls:
+  #    - secretName: safecity-tls
+  #      hosts:
+  #        - safecity.example.com
+
+# ── NetworkPolicy ─────────────────────────────────────────────
+# Default-deny with explicit allows: frontend -> backend, backend -> db/redis,
+# ingress controller -> frontend/backend, and DNS egress everywhere.
+networkPolicy:
+  enabled: true
+  # When the chart does not manage the database/Redis (e.g. RDS + ElastiCache),
+  # set these to the CIDR or namespace selector of those managed services.
+  # Leaving them empty allows egress to any destination on the listed ports.
+  databaseEgressCIDR: []
+  redisEgressCIDR: []
+
+# ── Application configuration (non-secret) ────────────────────
+config:
+  djangoSettingsModule: config.settings.prod
+  debug: "false"
+  # Comma-separated. Required in production; prod settings assert it is set.
+  allowedHosts: ""
+  csrfTrustedOrigins: ""
+  corsAllowedOrigins: ""
+
+  # Database (non-secret parts; password comes from the Secret)
+  postgresDb: safecity
+  postgresUser: safecity
+  dbHost: ""            # empty -> chart-managed Service, else e.g. RDS endpoint
+  dbPort: "5432"
+  dbConnMaxAge: "600"
+
+  # Redis (cache + Celery broker + Channels layer)
+  redisUrl: ""          # empty -> chart-managed Service
+  celeryBrokerUrl: ""
+
+  # Media storage
+  mediaBackend: local   # local | s3
+  awsS3Bucket: ""
+  awsS3Region: ap-south-1
+  s3EndpointUrl: ""
+  publicUrl: ""
+
+  # Feature flags
+  allowAnonymousReports: "true"
+  emergencyModeEnabled: "true"
+  publicCoordJitterMeters: "150"
+  aiProvider: mock
+  aiTranslationEnabled: "true"
+  malwareScanProvider: mock
+  captchaProvider: mock
+
+  # Rate limits
+  rateLimitAnonPerMin: "30"
+  rateLimitIncidentsPerHour: "5"
+
+  # JWT
+  accessTokenMinutes: "15"
+  refreshTokenDays: "7"
+
+  # Email (empty -> console backend)
+  emailHost: ""
+  emailPort: "587"
+  defaultFromEmail: safecity@example.local
+
+  # Celery runtime
+  celeryTaskAlwaysEager: "false"
+
+# ── Secrets ───────────────────────────────────────────────────
+# Templates only. Supply real values through the environment overlay with
+# --set (from CI secrets) or point secret.existingSecret at a Secret managed
+# by External Secrets Operator / Secrets Manager.
+secret:
+  create: true
+  # If set, this Secret is used and no Secret is rendered by the chart.
+  existingSecret: ""
+  secretKey: ""             # Django SECRET_KEY (64+ random chars)
+  postgresPassword: ""
+  emailHostUser: ""
+  emailHostPassword: ""
+  openaiApiKey: ""
+  awsSecretAccessKey: ""

@@ -1,0 +1,139 @@
+{{- if .Values.frontend.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "safecity.fullname" . }}-frontend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+  {{- with .Values.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.frontend.autoscaling.enabled }}
+  replicas: {{ .Values.frontend.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "frontend") | nindent 8 }}
+    spec:
+      # The SPA is fully static and needs no cluster API access.
+      automountServiceAccountToken: false
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- if .Values.frontend.unprivileged }}
+        {{- toYaml .Values.frontend.unprivilegedPodSecurityContext | nindent 8 }}
+        {{- else }}
+        {{- toYaml .Values.frontend.podSecurityContext | nindent 8 }}
+        {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.frontend.terminationGracePeriodSeconds }}
+      containers:
+        - name: frontend
+          image: {{ include "safecity.image" (dict "root" . "image" .Values.frontend.image) | quote }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ if .Values.frontend.unprivileged }}{{ .Values.frontend.unprivilegedContainerPort }}{{ else }}{{ .Values.frontend.containerPort }}{{ end }}
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          {{- if .Values.frontend.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.frontend.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.frontend.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.frontend.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.frontend.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.frontend.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.frontend.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.frontend.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.frontend.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.frontend.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.frontend.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.frontend.probes.readiness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext:
+            {{- if .Values.frontend.unprivileged }}
+            {{- toYaml .Values.frontend.unprivilegedSecurityContext | nindent 12 }}
+            {{- else }}
+            {{- toYaml .Values.frontend.securityContext | nindent 12 }}
+            {{- end }}
+          # nginx writes to these paths even when serving static files only, so
+          # they must be writable given readOnlyRootFilesystem: true.
+          volumeMounts:
+            {{- range .Values.frontend.writablePaths }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+            {{- with .Values.frontend.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- range .Values.frontend.writablePaths }}
+        - name: {{ .name }}
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.frontend.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.frontend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "safecity.fullname" . }}-frontend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+  {{- with .Values.frontend.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.service.port }}
+      # Named port, so this tracks the container port automatically when
+      # frontend.unprivileged switches 80 -> 8080.
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+{{- end }}

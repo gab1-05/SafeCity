@@ -1,0 +1,54 @@
+{{- /*
+  Non-secret application configuration.
+
+  Everything in here is safe to read with `kubectl get configmap -o yaml`.
+  Anything that is not safe to read lives in templates/secret-django.yaml.
+  The env vars mirror .env.example so a local .env and a cluster ConfigMap
+  describe the same application.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "safecity.fullname" . }}-config
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+data:
+  DJANGO_SETTINGS_MODULE: {{ .Values.config.djangoSettingsModule | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  ALLOWED_HOSTS: {{ .Values.config.allowedHosts | quote }}
+  CSRF_TRUSTED_ORIGINS: {{ .Values.config.csrfTrustedOrigins | quote }}
+  CORS_ALLOWED_ORIGINS: {{ .Values.config.corsAllowedOrigins | quote }}
+
+  POSTGRES_DB: {{ .Values.config.postgresDb | quote }}
+  POSTGRES_USER: {{ .Values.config.postgresUser | quote }}
+  DB_HOST: {{ include "safecity.dbHost" . | quote }}
+  DB_PORT: {{ .Values.config.dbPort | quote }}
+  DB_CONN_MAX_AGE: {{ .Values.config.dbConnMaxAge | quote }}
+
+  REDIS_URL: {{ include "safecity.redisUrl" . | quote }}
+  CELERY_BROKER_URL: {{ include "safecity.celeryBrokerUrl" . | quote }}
+  CELERY_TASK_ALWAYS_EAGER: {{ .Values.config.celeryTaskAlwaysEager | quote }}
+
+  MEDIA_BACKEND: {{ .Values.config.mediaBackend | quote }}
+  AWS_S3_BUCKET: {{ .Values.config.awsS3Bucket | quote }}
+  AWS_S3_REGION: {{ .Values.config.awsS3Region | quote }}
+  S3_ENDPOINT_URL: {{ .Values.config.s3EndpointUrl | quote }}
+  PUBLIC_URL: {{ .Values.config.publicUrl | quote }}
+
+  ALLOW_ANONYMOUS_REPORTS: {{ .Values.config.allowAnonymousReports | quote }}
+  EMERGENCY_MODE_ENABLED: {{ .Values.config.emergencyModeEnabled | quote }}
+  PUBLIC_COORD_JITTER_METERS: {{ .Values.config.publicCoordJitterMeters | quote }}
+
+  AI_PROVIDER: {{ .Values.config.aiProvider | quote }}
+  AI_TRANSLATION_ENABLED: {{ .Values.config.aiTranslationEnabled | quote }}
+  MALWARE_SCAN_PROVIDER: {{ .Values.config.malwareScanProvider | quote }}
+  CAPTCHA_PROVIDER: {{ .Values.config.captchaProvider | quote }}
+
+  RATE_LIMIT_ANON_PER_MIN: {{ .Values.config.rateLimitAnonPerMin | quote }}
+  RATE_LIMIT_INCIDENTS_PER_HOUR: {{ .Values.config.rateLimitIncidentsPerHour | quote }}
+  ACCESS_TOKEN_MINUTES: {{ .Values.config.accessTokenMinutes | quote }}
+  REFRESH_TOKEN_DAYS: {{ .Values.config.refreshTokenDays | quote }}
+
+  EMAIL_HOST: {{ .Values.config.emailHost | quote }}
+  EMAIL_PORT: {{ .Values.config.emailPort | quote }}
+  DEFAULT_FROM_EMAIL: {{ .Values.config.defaultFromEmail | quote }}

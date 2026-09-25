@@ -1,0 +1,42 @@
+# Copy to terraform.tfvars and adjust. Never commit terraform.tfvars.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Staging mirrors production's durability and encryption settings so that
+# restores, failovers and certificate renewals are rehearsed here first.
+
+project     = "safecity"
+environment = "staging"
+owner       = "bombay-salesian-society-sdp"
+cost_center = "sdp-academic"
+region      = "ap-south-1"
+
+# ── Networking ───────────────────────────────────────────
+vpc_cidr           = "10.21.0.0/16"
+nat_gateway_per_az = true # egress redundancy, matching production
+
+# ── Database ─────────────────────────────────────────────
+db_instance_class        = "db.t4g.small"
+db_backup_retention_days = 7
+
+# ── Kubernetes ───────────────────────────────────────────
+node_instance_types = ["t3.medium"]
+node_capacity_type  = "ON_DEMAND" # staging must not be reclaimed mid-test
+node_desired_size   = 2
+node_max_size       = 4
+
+# Restrict to your office/VPN egress ranges:
+cluster_public_access_cidrs = ["203.0.113.0/24"]
+
+# ── CI/CD ────────────────────────────────────────────────
+github_repository = "your-org/SafeCity"
+
+# ── TLS and DNS (required for staging) ───────────────────
+certificate_arn = "arn:aws:acm:ap-south-1:123456789012:certificate/REPLACE-ME"
+domain_name     = "staging.safecity.example.org"
+hosted_zone_id  = "Z0123456789ABCDEFGHIJ"
+
+allowed_origins = ["https://staging.safecity.example.org"]
+
+# ── Alerts ───────────────────────────────────────────────
+alert_email = "sdp-team@example.org"

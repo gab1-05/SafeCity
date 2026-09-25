@@ -1,0 +1,50 @@
+# Copy to terraform.tfvars and adjust. Never commit terraform.tfvars.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# This is the production environment. Every apply here is destructive in
+# intent even when it succeeds, so:
+#   - always run `terraform plan` and read it,
+#   - apply only through the protected GitHub environment workflow,
+#   - see ../../../docs/COST-CONTROL.md for the teardown procedure.
+#
+# Note what is NOT here: no database password, no JWT secret, no AWS keys.
+# Generated credentials live in Secrets Manager; CI and pods use short-lived
+# OIDC credentials, so no long-lived access key exists anywhere.
+
+project     = "safecity"
+environment = "prod"
+owner       = "bombay-salesian-society-sdp"
+cost_center = "sdp-academic"
+region      = "ap-south-1"
+
+# ── Networking ───────────────────────────────────────────
+vpc_cidr           = "10.22.0.0/16"
+nat_gateway_per_az = true
+
+# ── Database ─────────────────────────────────────────────
+db_instance_class        = "db.t4g.medium"
+db_backup_retention_days = 30
+
+# ── Kubernetes ───────────────────────────────────────────
+node_instance_types = ["t3.medium"]
+node_capacity_type  = "ON_DEMAND"
+node_desired_size   = 3
+node_max_size       = 6
+
+# Restrict to GitHub Actions egress ranges plus the operations team's VPN.
+# Leaving this as 0.0.0.0/0 exposes the Kubernetes API to the internet.
+cluster_public_access_cidrs = ["140.82.112.0/20", "203.0.113.0/24"]
+
+# ── CI/CD ────────────────────────────────────────────────
+github_repository = "your-org/SafeCity"
+
+# ── TLS and DNS (required) ───────────────────────────────
+certificate_arn = "arn:aws:acm:ap-south-1:123456789012:certificate/REPLACE-ME"
+domain_name     = "safecity.example.org"
+hosted_zone_id  = "Z0123456789ABCDEFGHIJ"
+
+allowed_origins = ["https://safecity.example.org"]
+
+# ── Observability ────────────────────────────────────────
+alert_email = "sdp-team@example.org"

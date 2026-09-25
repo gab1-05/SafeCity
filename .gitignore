@@ -1,0 +1,48 @@
+# ---- Secrets / env ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+backend/media/
+backend/staticfiles/
+
+# ---- Node / Frontend ----
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+.turbo/
+
+# ---- Terraform ----
+infrastructure/terraform/**/.terraform/
+infrastructure/terraform/**/terraform.tfstate*
+infrastructure/terraform/**/*.tfvars
+!infrastructure/terraform/**/terraform.tfvars.example
+.terraform.lock.hcl
+
+# ---- Docker / misc ----
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!/.vscode/extensions.json
+minio_data/
+celerybeat-schedule

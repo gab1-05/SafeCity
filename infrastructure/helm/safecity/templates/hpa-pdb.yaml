@@ -1,0 +1,156 @@
+{{- /*
+  Autoscaling and disruption budgets.
+
+  HPAs are only rendered when explicitly enabled in the overlay. A default-on
+  HPA that cannot find its metrics server silently stops scaling (or worse,
+  fights a manually set replica count), so this is opt-in.
+
+  PDBs are on by default for the stateless web tiers: they are what stops a
+  node drain from taking the whole API down at once.
+*/}}
+
+{{- if .Values.backend.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "safecity.fullname" . }}-backend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "safecity.fullname" . }}-backend
+  minReplicas: {{ .Values.backend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.backend.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.backend.autoscaling.targetCPUUtilizationPercentage }}
+    {{- with .Values.backend.autoscaling.targetQueueDepth }}
+    # Celery/Redis queue depth. Requires an external metrics adapter (e.g.
+    # prometheus-adapter or KEDA) to expose the metric to the HPA. CPU alone is
+    # a poor signal for an API whose backlog shows up in Redis first.
+    - type: External
+      external:
+        metric:
+          name: redis_queue_depth
+        target:
+          type: AverageValue
+          averageValue: {{ . | quote }}
+    {{- end }}
+  behavior:
+    scaleDown:
+      # Slow scale-down avoids flapping when traffic is bursty.
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
+{{- end }}
+
+{{- if .Values.frontend.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "safecity.fullname" . }}-frontend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "safecity.fullname" . }}-frontend
+  minReplicas: {{ .Values.frontend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.frontend.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.frontend.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+
+{{- if .Values.celeryWorker.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "safecity.fullname" . }}-celery-worker
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "celery-worker") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "safecity.fullname" . }}-celery-worker
+  minReplicas: {{ .Values.celeryWorker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.celeryWorker.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.celeryWorker.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+
+{{- if and .Values.backend.enabled .Values.backend.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "safecity.fullname" . }}-backend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.backend.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+{{- end }}
+
+{{- if and .Values.frontend.enabled .Values.frontend.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "safecity.fullname" . }}-frontend
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.frontend.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+{{- end }}
+
+{{- if and .Values.celeryWorker.enabled .Values.celeryWorker.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "safecity.fullname" . }}-celery-worker
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "celery-worker") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.celeryWorker.podDisruptionBudget.minAvailable | default 0 }}
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "celery-worker") | nindent 6 }}
+{{- end }}

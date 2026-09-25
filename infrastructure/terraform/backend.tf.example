@@ -1,0 +1,30 @@
+# Remote state — EXAMPLE ONLY. Do not commit real backend configuration.
+#
+# Remote state is how an SDP/team project avoids the classic failure mode of two
+# people running `terraform apply` from different laptops and corrupting state.
+#
+# To use it:
+#   1. Create the state bucket and lock table once (see the bootstrap commands in
+#      ../../README.md). They are intentionally NOT created by this configuration,
+#      because Terraform cannot manage the backend it is currently using.
+#   2. Copy this file to `backend.tf` inside the environment you are deploying:
+#        cp infrastructure/terraform/backend.tf.example \
+#           infrastructure/terraform/environments/dev/backend.tf
+#   3. Set `key` to `<project>/<environment>/terraform.tfstate` for that environment.
+#   4. Re-run `terraform init` and confirm it offers to migrate local state.
+#
+# DynamoDB locking is required for Terraform < 1.10 and strongly recommended
+# above it; state locking prevents two concurrent applies racing each other.
+
+terraform {
+  backend "s3" {
+    bucket         = "REPLACE-WITH-YOUR-TFSTATE-BUCKET"
+    key            = "safecity/dev/terraform.tfstate"
+    region         = "ap-south-1"
+    encrypt        = true
+    dynamodb_table = "safecity-terraform-locks"
+
+    # Optional: separate credentials for the state bucket itself.
+    # profile = "safecity-tfstate"
+  }
+}

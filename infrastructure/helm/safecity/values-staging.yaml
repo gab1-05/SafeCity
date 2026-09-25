@@ -1,0 +1,133 @@
+# ─────────────────────────────────────────────────────────────
+# SafeCity — STAGING overlay
+#
+# Mirrors production's shape (multi-replica, autoscaling, PDBs, TLS) at a
+# smaller size, so a staging deploy exercises the same rollout mechanics that
+# production will. Staging is where a bad migration or probe misconfiguration
+# should be discovered, not production.
+#
+# Deployed by the intended `deploy-staging.yml` workflow on merge to `develop`.
+# ─────────────────────────────────────────────────────────────
+
+global:
+  environment: staging
+  imageRegistry: ""
+
+commonLabels:
+  cost-center: safecity-staging
+
+serviceAccount:
+  create: true
+  annotations: {}
+  #  annotations:
+  #    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/safecity-staging-irsa
+
+config:
+  djangoSettingsModule: config.settings.prod
+  debug: "false"
+  allowedHosts: "staging.safecity.example.com"
+  csrfTrustedOrigins: "https://staging.safecity.example.com"
+  corsAllowedOrigins: "https://staging.safecity.example.com"
+
+  # ── REPLACE with your staging endpoints ──────────────────
+  dbHost: "safecity-staging-db.xxxxxxxxxxxx.ap-south-1.rds.amazonaws.com"
+  dbPort: "5432"
+  redisUrl: "redis://safecity-staging-redis.xxxxxx.0001.aps1.cache.amazonaws.com:6379/0"
+  # ─────────────────────────────────────────────────────────
+
+  mediaBackend: s3
+  awsS3Bucket: "safecity-staging-media"
+  awsS3Region: ap-south-1
+  publicUrl: "https://staging.safecity.example.com"
+
+  # Real integrations can be enabled in staging to validate the adapter paths.
+  aiProvider: mock
+  malwareScanProvider: mock
+  captchaProvider: mock
+  emailHost: ""
+  emailPort: "587"
+  defaultFromEmail: "safecity-staging@example.com"
+
+  rateLimitAnonPerMin: "30"
+  rateLimitIncidentsPerHour: "5"
+
+backend:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 75
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+frontend:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 75
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+celeryWorker:
+  replicaCount: 1
+  concurrency: 2
+  autoscaling:
+    enabled: false
+
+celeryBeat:
+  replicaCount: 1
+
+migration:
+  enabled: true
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "110m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Uncomment when cert-manager is installed in the cluster.
+    # cert-manager.io/cluster-issuer: letsencrypt-staging
+  hosts:
+    - host: staging.safecity.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /ws
+          pathType: Prefix
+          service: backend
+        - path: /admin
+          pathType: Prefix
+          service: backend
+        - path: /
+          pathType: Prefix
+          service: frontend
+  tls:
+    - secretName: safecity-staging-tls
+      hosts:
+        - staging.safecity.example.com
+
+networkPolicy:
+  enabled: true
+
+secret:
+  create: false
+  # Preferred in staging and production: let External Secrets Operator sync from
+  # AWS Secrets Manager so no secret material passes through Helm or CI logs.
+  existingSecret: "safecity-staging-secrets"

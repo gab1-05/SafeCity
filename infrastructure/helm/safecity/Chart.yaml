@@ -1,0 +1,22 @@
+apiVersion: v2
+name: safecity
+description: SafeCity — Smart City Incident Management and Civic Response Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.27.0-0"
+keywords:
+  - safecity
+  - incident-management
+  - civic
+  - django
+  - react
+home: https://github.com/safecity/safecity
+sources:
+  - https://github.com/safecity/safecity
+maintainers:
+  - name: SafeCity SDP Team
+    email: dev@safecity.local
+annotations:
+  category: CivicTech
+  licenses: MIT

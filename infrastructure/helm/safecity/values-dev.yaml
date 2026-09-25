@@ -1,0 +1,149 @@
+# ─────────────────────────────────────────────────────────────
+# SafeCity — DEV overlay
+#
+# Usage (matches `make k8s-deploy`):
+#   helm upgrade --install safecity infrastructure/helm/safecity \
+#     -f infrastructure/helm/safecity/values-dev.yaml \
+#     -n safecity-dev --create-namespace
+#
+# Sized for a cost-conscious shared dev cluster. Everything here is meant to be
+# small: one replica per tier, no autoscaling, small resource requests.
+#
+# Before deploying, either:
+#   a) point config.dbHost / config.redisUrl at the dev RDS + ElastiCache
+#      endpoints produced by Terraform (`terraform output`), or
+#   b) set them to a PostgreSQL/Redis Service you install separately.
+# The chart does not create a database or Redis.
+# ─────────────────────────────────────────────────────────────
+
+global:
+  environment: dev
+  # Set to your ECR registry for the dev account, e.g.
+  # imageRegistry: 123456789012.dkr.ecr.ap-south-1.amazonaws.com
+  imageRegistry: ""
+
+commonLabels:
+  cost-center: safecity-dev
+
+serviceAccount:
+  create: true
+  annotations: {}
+  #  annotations:
+  #    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/safecity-dev-irsa
+
+config:
+  djangoSettingsModule: config.settings.prod
+  debug: "false"
+  # Dev ingress host. Use the ingress-nginx LoadBalancer address or a nip.io
+  # hostname if you do not control DNS.
+  allowedHosts: "safecity-dev.local,localhost,127.0.0.1"
+  csrfTrustedOrigins: "http://safecity-dev.local"
+  corsAllowedOrigins: "http://safecity-dev.local"
+
+  # ── REPLACE with your dev endpoints ──────────────────────
+  dbHost: "safecity-dev-db.xxxxxxxxxxxx.ap-south-1.rds.amazonaws.com"
+  dbPort: "5432"
+  redisUrl: "redis://safecity-dev-redis.xxxxxx.0001.aps1.cache.amazonaws.com:6379/0"
+  # ─────────────────────────────────────────────────────────
+
+  mediaBackend: s3
+  awsS3Bucket: "safecity-dev-media"
+  awsS3Region: ap-south-1
+  publicUrl: "http://safecity-dev.local"
+
+  # Optional integrations stay mocked in dev so no credentials are required.
+  aiProvider: mock
+  malwareScanProvider: mock
+  captchaProvider: mock
+  emailHost: ""
+  celeryTaskAlwaysEager: "false"
+
+backend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+frontend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 48Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+celeryWorker:
+  replicaCount: 1
+  concurrency: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+celeryBeat:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+migration:
+  enabled: true
+  backoffLimit: 3
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "110m"
+    # WebSocket support (the Channels endpoint at /ws/notifications/).
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: safecity-dev.local
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /ws
+          pathType: Prefix
+          service: backend
+        - path: /admin
+          pathType: Prefix
+          service: backend
+        - path: /
+          pathType: Prefix
+          service: frontend
+  tls: []
+
+networkPolicy:
+  enabled: true
+
+# Secret values are intentionally empty. Supply them at deploy time so they are
+# never committed:
+#   --set secret.secretKey="$DJANGO_SECRET_KEY" \
+#   --set secret.postgresPassword="$POSTGRES_PASSWORD"
+# Or point secret.existingSecret at a Secret managed by External Secrets.
+secret:
+  create: true
+  existingSecret: ""

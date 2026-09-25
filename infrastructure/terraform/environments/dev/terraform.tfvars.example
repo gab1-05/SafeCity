@@ -1,0 +1,43 @@
+# Copy to terraform.tfvars and adjust. Never commit terraform.tfvars.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Note what is NOT here: no database password, no JWT secret, no AWS keys.
+# Generated credentials live in Secrets Manager and access keys never exist at
+# all, because CI and pods both use short-lived OIDC credentials.
+
+project     = "safecity"
+environment = "dev"
+owner       = "bombay-salesian-society-sdp"
+cost_center = "sdp-academic"
+region      = "ap-south-1"
+
+# ── Networking ───────────────────────────────────────────
+vpc_cidr            = "10.20.0.0/16"
+nat_gateway_per_az  = false # one shared NAT keeps the bill down
+
+# ── Database ─────────────────────────────────────────────
+db_instance_class       = "db.t4g.micro"
+db_backup_retention_days = 0 # no backups in dev; the data is disposable
+
+# ── Kubernetes ───────────────────────────────────────────
+node_instance_types = ["t3.medium"]
+node_capacity_type  = "SPOT" # ~70% cheaper, acceptable for dev
+node_desired_size   = 2
+
+# Restrict this to your own public IP before applying:
+#   curl -s https://checkip.amazonaws.com
+cluster_public_access_cidrs = ["0.0.0.0/0"]
+
+# ── CI/CD ────────────────────────────────────────────────
+# Enables the GitHub Actions OIDC deploy role for this repository only.
+github_repository = "your-org/SafeCity"
+
+# ── TLS and DNS (optional) ───────────────────────────────
+# Leave empty for an HTTP-only dev stack.
+# certificate_arn = "arn:aws:acm:ap-south-1:123456789012:certificate/REPLACE"
+# domain_name     = "dev.safecity.example.org"
+# hosted_zone_id  = "Z0123456789ABCDEFGHIJ"
+
+# ── Alerts (optional) ────────────────────────────────────
+alert_email = ""

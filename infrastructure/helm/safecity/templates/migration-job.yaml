@@ -1,0 +1,71 @@
+{{- if .Values.migration.enabled -}}
+{{- /*
+  Schema migration as a separate, observable step.
+
+  The application never auto-migrates on pod start. Running migrations from a
+  Deployment's entrypoint means N replicas all race the same migration, and a
+  failed rollout becomes ambiguous: you cannot tell whether the old or the new
+  schema is live.
+
+  Annotations below make Helm run this BEFORE the release's Deployments are
+  rolled (pre-install/pre-upgrade) and wait for it to finish, so a broken
+  migration aborts the release instead of shipping a half-upgraded app.
+
+  hook-delete-policy removes the finished Job so the next release can create a
+  Job with the same name.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "safecity.fullname" . }}-migrate
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "migration") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- with .Values.migration.hookAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  # Clean up the Job pod after a day so completed migrations do not accumulate.
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "migration") | nindent 8 }}
+      {{- with .Values.migration.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      # Dedicated ServiceAccount access is not needed to run migrations.
+      automountServiceAccountToken: false
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "safecity.image" (dict "root" . "image" .Values.backend.image) | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "safecity.fullname" . }}-config
+          env:
+            {{- include "safecity.secretEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.backend.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "safecity.tmpVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "safecity.tmpVolume" . | nindent 8 }}
+{{- end }}

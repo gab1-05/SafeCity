@@ -1,0 +1,20 @@
+# Patterns to ignore when building packages.
+.DS_Store
+.git/
+.gitignore
+.bzr/
+.hg/
+.hgignore
+.svn/
+# Common backup files
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+# Editors
+.idea/
+.vscode/
+# Project-specific
+values-*.local.yaml
+*.secret.yaml

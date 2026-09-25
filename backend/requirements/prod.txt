@@ -1,0 +1,2 @@
+-r base.txt
+drf-spectacular[sidecar]>=0.27

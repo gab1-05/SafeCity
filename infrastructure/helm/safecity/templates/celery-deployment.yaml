@@ -1,0 +1,203 @@
+{{- if .Values.celeryWorker.enabled -}}
+---
+
+{{/* ══════════════════════════════════════════════════════════════
+     Celery worker — async media processing, SLA sweeps, digests.
+     ══════════════════════════════════════════════════════════════ */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "safecity.fullname" . }}-celery-worker
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "celery-worker") | nindent 4 }}
+  {{- with .Values.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.celeryWorker.autoscaling.enabled }}
+  replicas: {{ .Values.celeryWorker.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "celery-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "celery-worker") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.secret.create (not .Values.secret.existingSecret) }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret-django.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "safecity.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.celeryWorker.podSecurityContext | nindent 8 }}
+      # Long enough for an in-flight task to finish rather than be re-delivered.
+      terminationGracePeriodSeconds: {{ .Values.celeryWorker.terminationGracePeriodSeconds }}
+      containers:
+        - name: celery-worker
+          image: {{ include "safecity.image" (dict "root" . "image" .Values.backend.image) | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - config
+            - worker
+            - --loglevel=info
+            - --concurrency={{ .Values.celeryWorker.concurrency }}
+            - --pool={{ .Values.celeryWorker.pool }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "safecity.fullname" . }}-config
+          env:
+            {{- include "safecity.secretEnv" . | nindent 12 }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- with .Values.celeryWorker.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          # A Celery worker has no HTTP endpoint to probe, so liveness is a
+          # process check via `celery inspect ping`. Kubernetes runs this inside
+          # the container, so it does not need a network listener.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A config inspect ping -d celery@$HOSTNAME
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.celeryWorker.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "safecity.tmpVolumeMount" . | nindent 12 }}
+            # Media processing (EXIF strip, thumbnails) needs scratch space.
+            - name: media
+              mountPath: /app/media
+      volumes:
+        {{- include "safecity.tmpVolume" . | nindent 8 }}
+        - name: media
+          emptyDir: {}
+      {{- with .Values.celeryWorker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.celeryWorker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.celeryWorker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+
+{{- if .Values.celeryBeat.enabled -}}
+---
+{{/* ══════════════════════════════════════════════════════════════
+     Celery beat — the scheduler.
+
+     MUST be a single replica. Two beat processes both fire the same scheduled
+     tasks, which would double-count SLA breaches and raise duplicate
+     escalations. The Deployment uses the Recreate strategy so a rolling update
+     can never momentarily run two schedulers.
+     ══════════════════════════════════════════════════════════════ */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "safecity.fullname" . }}-celery-beat
+  labels:
+    {{- include "safecity.componentLabels" (dict "root" . "component" "celery-beat") | nindent 4 }}
+  {{- with .Values.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    # Recreate, not RollingUpdate: the scheduler must never be duplicated even
+    # for the duration of a rollout.
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "celery-beat") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "safecity.componentSelectorLabels" (dict "root" . "component" "celery-beat") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.secret.create (not .Values.secret.existingSecret) }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret-django.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "safecity.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.celeryBeat.podSecurityContext | nindent 8 }}
+      containers:
+        - name: celery-beat
+          image: {{ include "safecity.image" (dict "root" . "image" .Values.backend.image) | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - config
+            - beat
+            - --loglevel=info
+            - --scheduler=django_celery_beat.schedulers:DatabaseScheduler
+          envFrom:
+            - configMapRef:
+                name: {{ include "safecity.fullname" . }}-config
+          env:
+            {{- include "safecity.secretEnv" . | nindent 12 }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- with .Values.celeryBeat.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.celeryBeat.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.celeryBeat.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- include "safecity.tmpVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "safecity.tmpVolume" . | nindent 8 }}
+      {{- with .Values.celeryBeat.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.celeryBeat.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.celeryBeat.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
