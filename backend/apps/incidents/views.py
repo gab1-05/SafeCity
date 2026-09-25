@@ -62,7 +62,7 @@ class PublicByTokenView(APIView):
 
 
 class IncidentCategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = IncidentCategory.objects.filter(is_active=True)
+    queryset = IncidentCategory.objects.filter(is_active=True).select_related("default_department")
     serializer_class = IncidentCategorySerializer
     permission_classes = [permissions.AllowAny]
     ordering = ["display_order", "name"]
@@ -70,6 +70,69 @@ class IncidentCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class IncidentThrottle(UserRateThrottle):
     scope = "incident_create"
+
+
+def scoped_incident_queryset(user, params):
+    """
+    List scoping + filters shared by IncidentViewSet.list and the CSV export.
+
+    `params` is a QueryDict (request.query_params); filters and role scoping
+    must stay identical for both consumers.
+    """
+    qs = Incident.objects.select_related(
+        "category",
+        "department",
+        "ward",
+        "assigned_staff",
+        "assigned_responder",
+    ).filter(deleted_at__isnull=True)
+
+    # ── filters ──────────────────────────────────────────
+    status_param = params.getlist("status")
+    if status_param:
+        qs = qs.filter(status__in=status_param)
+    if severity := params.get("severity"):
+        qs = qs.filter(severity=severity)
+    if category := params.get("category"):
+        qs = qs.filter(category__slug=category)
+    if department := params.get("department"):
+        qs = qs.filter(department__code=department)
+    if ward := params.get("ward"):
+        qs = qs.filter(ward__code=ward)
+    if q := params.get("q"):
+        qs = qs.filter(
+            Q(reference_number__icontains=q) | Q(title__icontains=q) | Q(description__icontains=q)
+        )
+    if created_after := params.get("created_after"):
+        qs = qs.filter(created_at__date__gte=created_after)
+    if created_before := params.get("created_before"):
+        qs = qs.filter(created_at__date__lte=created_before)
+    if params.get("overdue") == "true":
+        qs = qs.filter(sla_breached=False).filter(sla_deadline__lt=timezone.now())
+    if params.get("sla_state") == "breached":
+        qs = qs.filter(sla_breached=True)
+    if params.get("emergency") == "true":
+        qs = qs.filter(is_emergency=True)
+
+    # ── role scoping ───────────────────────────────────
+    if not user.is_authenticated:
+        return qs.filter(status__in=["verified", "resolved"], is_anonymous=False)
+    if user.role in (UserRole.CITY_ADMIN, UserRole.SUPERUSER):
+        pass  # all
+    elif user.role == UserRole.DEPARTMENT_STAFF:
+        qs = qs.filter(department_id=user.department_id)
+    elif user.role == UserRole.EMERGENCY_RESPONDER:
+        qs = qs.filter(
+            Q(assigned_responder=user)
+            | Q(severity__in=["high", "critical"])
+            | Q(is_emergency=True)
+        )
+    elif user.role == UserRole.VOLUNTEER:
+        qs = qs.filter(status__in=["verified", "in_progress", "resolved"])
+    else:  # citizen
+        qs = qs.filter(reporter=user)
+
+    return qs
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
@@ -122,64 +185,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         )
 
     def get_queryset(self):
-        user = self.request.user
-        qs = Incident.objects.select_related(
-            "category",
-            "department",
-            "ward",
-            "assigned_staff",
-            "assigned_responder",
-        ).filter(deleted_at__isnull=True)
-
-        params = self.request.query_params
-        # ── filters ──────────────────────────────────────────
-        status_param = params.getlist("status")
-        if status_param:
-            qs = qs.filter(status__in=status_param)
-        if severity := params.get("severity"):
-            qs = qs.filter(severity=severity)
-        if category := params.get("category"):
-            qs = qs.filter(category__slug=category)
-        if department := params.get("department"):
-            qs = qs.filter(department__code=department)
-        if ward := params.get("ward"):
-            qs = qs.filter(ward__code=ward)
-        if q := params.get("q"):
-            qs = qs.filter(
-                Q(reference_number__icontains=q)
-                | Q(title__icontains=q)
-                | Q(description__icontains=q)
-            )
-        if created_after := params.get("created_after"):
-            qs = qs.filter(created_at__date__gte=created_after)
-        if created_before := params.get("created_before"):
-            qs = qs.filter(created_at__date__lte=created_before)
-        if params.get("overdue") == "true":
-            qs = qs.filter(sla_breached=False).filter(sla_deadline__lt=timezone.now())
-        if params.get("sla_state") == "breached":
-            qs = qs.filter(sla_breached=True)
-        if params.get("emergency") == "true":
-            qs = qs.filter(is_emergency=True)
-
-        # ── role scoping ───────────────────────────────────
-        if not user.is_authenticated:
-            return qs.filter(status__in=["verified", "resolved"], is_anonymous=False)
-        if user.role in (UserRole.CITY_ADMIN, UserRole.SUPERUSER):
-            pass  # all
-        elif user.role == UserRole.DEPARTMENT_STAFF:
-            qs = qs.filter(department_id=user.department_id)
-        elif user.role == UserRole.EMERGENCY_RESPONDER:
-            qs = qs.filter(
-                Q(assigned_responder=user)
-                | Q(severity__in=["high", "critical"])
-                | Q(is_emergency=True)
-            )
-        elif user.role == UserRole.VOLUNTEER:
-            qs = qs.filter(status__in=["verified", "in_progress", "resolved"])
-        else:  # citizen
-            qs = qs.filter(reporter=user)
-
-        return qs
+        return scoped_incident_queryset(self.request.user, self.request.query_params)
 
     def perform_create(self, serializer):
         from apps.incidents.services import create_incident
@@ -239,7 +245,10 @@ class IncidentViewSet(viewsets.ModelViewSet):
         assignee_id = request.data.get("assignee_id")
         auto = request.data.get("auto", False)
         if auto:
-            assignee = services.pick_staff_workload_aware(incident.department)
+            # Never auto-pick the requester — self-assignment is rejected below.
+            assignee = services.pick_staff_workload_aware(
+                incident.department, exclude_user=request.user
+            )
             if assignee is None:
                 return Response(
                     {"detail": "No available staff in this department."},

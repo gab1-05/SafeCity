@@ -146,7 +146,9 @@ PASSWORD_HASHERS = [
 # ── DRF ───────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # Rejects 2FA-challenge tokens; the 2FA verify endpoint opts into the
+        # stock JWTAuthentication explicitly (see apps.accounts.views_2fa).
+        "apps.accounts.authentication.StrictJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_FILTER_BACKENDS": (
@@ -166,7 +168,7 @@ REST_FRAMEWORK = {
         "anon": f"{env('RATE_LIMIT_ANON_PER_MIN')}/min",
         "user": "120/min",
         "auth": "10/min",
-        "incident_create": f"{env('RATE_LIMIT_INCIDENTS_PER_HOUR')}/hour",
+        "incident_create": "12/hour",
         "media_upload": "30/hour",
         "ai": "20/hour",
     },

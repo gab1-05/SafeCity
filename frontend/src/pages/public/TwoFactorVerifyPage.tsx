@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { authApi } from "@/api/auth";
-import { normalizeError, tokenStore } from "@/api/client";
+import { normalizeError } from "@/api/client";
 import { useAuthStore } from "@/store/auth";
 import { Separator } from "@/components/ui/input";
 
@@ -25,6 +25,7 @@ export function TwoFactorVerifyPage() {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState("");
 
   const {
     register,
@@ -32,15 +33,16 @@ export function TwoFactorVerifyPage() {
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const onSubmit = async (data: FormData) => {
+  /** Shared by the TOTP form and the recovery-code form (both are `token`s server-side). */
+  const verifyWithToken = async (token: string) => {
     setSubmitting(true);
     try {
-      const result = await authApi.verify2fa(data);
+      const result = await authApi.verify2fa({ token });
       setUser({
         id: result.user.id,
         email: result.user.email,
         role: result.user.role,
-        full_name: result.user.full_name,
+        full_name: result.user.full_name ?? "",
         department: null,
       });
       toast({ title: "Welcome back", variant: "success" });
@@ -51,6 +53,8 @@ export function TwoFactorVerifyPage() {
       setSubmitting(false);
     }
   };
+
+  const onSubmit = async (data: FormData) => verifyWithToken(data.token);
 
   return (
     <div className="container flex min-h-[70vh] items-center justify-center py-10">
@@ -106,8 +110,8 @@ export function TwoFactorVerifyPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  handleSubmit(onSubmit)({ token: formData.get("recovery") as string } as FormData);
+                  const code = recoveryCode.trim();
+                  if (code) void verifyWithToken(code);
                 }}
                 className="space-y-2"
               >
@@ -118,6 +122,8 @@ export function TwoFactorVerifyPage() {
                   maxLength={8}
                   placeholder="ABCD1234"
                   autoComplete="off"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
                 />
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {submitting ? "Verifying…" : "Verify recovery code"}

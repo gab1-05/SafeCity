@@ -140,12 +140,12 @@ function CommunityFeed() {
             >
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                 style={{ backgroundColor: incident.category ? `hsl(var(--severity-${incident.severity}))` : "hsl(var(--muted))" }}>
-                <SeverityBadge severity={incident.severity as any} />
+                <SeverityBadge severity={incident.severity} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-medium truncate">{incident.title}</p>
-                  <StatusBadge status={incident.status as any} />
+                  <StatusBadge status={incident.status} />
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground truncate">
                   {incident.category?.name} · {incident.ward_name ?? "Unknown area"} · {timeAgo(incident.created_at)}

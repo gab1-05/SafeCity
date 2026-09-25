@@ -5,6 +5,7 @@ two-factor authentication.
 """
 
 import logging
+from datetime import timedelta
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -14,7 +15,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from apps.accounts.models import User
@@ -114,22 +115,16 @@ class LoginThrottledView(TokenObtainPairView):
             user.save(update_fields=["failed_login_count", "locked_until"])
             log_action(actor=user, action="auth.login", obj=user, request=request)
 
-            # Check if 2FA is required
-            if user.two_factor_enabled and user.is_authority():
-                # Return a partial response indicating 2FA is required
-                # The frontend will call the 2FA verify endpoint
-                return Response(
-                    {
-                        "requires_2fa": True,
-                        "user": {
-                            "id": str(user.id),
-                            "email": user.email,
-                            "role": user.role,
-                            "full_name": user.full_name,
-                        },
-                    },
-                    status=status.HTTP_200_OK,
-                )
+            payload = response.data
+            # 2FA challenge: hand back a 2-minute access token carrying
+            # `2fa_pending`. It authenticates ONLY the /auth/token/2fa/ exchange
+            # (StrictJWTAuthentication rejects it everywhere else).
+            if payload.get("requires_2fa"):
+                challenge = AccessToken.for_user(user)
+                challenge.set_exp(lifetime=timedelta(minutes=2))
+                challenge["2fa_pending"] = True
+                payload["access"] = str(challenge)
+                return Response(payload, status=status.HTTP_200_OK)
 
         return response
 

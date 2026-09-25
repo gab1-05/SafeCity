@@ -5,11 +5,12 @@ Two-factor authentication views (TOTP + recovery codes).
 import logging
 
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.accounts.serializers import TwoFactorVerifySerializer
+from apps.accounts.serializers import SafeCityTokenObtainPairSerializer, TwoFactorVerifySerializer
 from apps.accounts.two_factor import (
     generate_recovery_codes,
     generate_totp_secret,
@@ -127,12 +128,29 @@ class TwoFactorDisableView(APIView):
 
 
 class TwoFactorVerifyLoginView(APIView):
-    """Verify TOTP or recovery code during login (called after password auth)."""
+    """
+    Complete a login that requires 2FA (called after password auth).
 
-    permission_classes = [IsAuthenticated]
+    The caller has no usable session yet: it presents the short-lived
+    ``2fa_pending`` challenge token issued by the login endpoint. This is the
+    only view in the API that accepts such a token — every other endpoint uses
+    StrictJWTAuthentication, which rejects it.
+    """
+
+    permission_classes = [AllowAny]
+    # Stock JWTAuthentication (not Strict): it must accept the challenge token.
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         user = request.user
+        challenge = request.auth
+
+        if user.is_anonymous or challenge is None or not challenge.payload.get("2fa_pending"):
+            return Response(
+                {"detail": "Two-factor challenge missing or expired. Sign in again."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         if not user.two_factor_enabled:
             return Response({"detail": "2FA not required for this account."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -154,7 +172,21 @@ class TwoFactorVerifyLoginView(APIView):
                 return Response({"detail": "Invalid token or recovery code."}, status=status.HTTP_400_BAD_REQUEST)
 
         log_action(actor=user, action="auth.2fa_login_success", obj=user, request=request)
-        return Response({"detail": "2FA verified."})
+
+        # Full session issued only after the second factor succeeded.
+        refresh = SafeCityTokenObtainPairSerializer.get_token(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "role": user.role,
+                    "full_name": user.full_name,
+                },
+            }
+        )
 
 
 class TwoFactorRegenerateRecoveryCodesView(APIView):

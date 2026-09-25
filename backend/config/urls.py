@@ -26,10 +26,11 @@ urlpatterns = [
         "api/schema/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"
     ),
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    path("api/v1/admin/overview/", AdminOverviewView.as_view(), name="admin-overview"),
     path("api/v1/auth/", include("apps.accounts.urls_auth")),
     path("api/v1/users/", include("apps.accounts.urls_users")),
     path("api/v1/", include("apps.core.urls")),
+    # Grouped with the other api/v1/ includes so no non-api/v1/ path sits above them.
+    path("api/v1/admin/overview/", AdminOverviewView.as_view(), name="admin-overview"),
     path("api/v1/", include("apps.accounts.urls_profile")),
     path("api/v1/", include("apps.departments.urls")),
     # Media routes are listed before the incidents router on purpose: the router

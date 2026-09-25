@@ -111,8 +111,11 @@ export function CreateIncidentPage() {
     queryFn: referenceDataApi.categories,
   });
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const set = useCallback(
+    <K extends keyof FormState>(key: K, value: FormState[K]) =>
+      setForm((prev) => ({ ...prev, [key]: value })),
+    [],
+  );
 
   const useMyLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -137,7 +140,7 @@ export function CreateIncidentPage() {
       },
       { enableHighAccuracy: true, timeout: 10_000 },
     );
-  }, [toast]);
+  }, [toast, set]);
 
   const handleAddressSearch = useCallback((value: string) => {
     setAddressSearch(value);

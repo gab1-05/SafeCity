@@ -110,6 +110,13 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel):
     failed_login_count = models.PositiveIntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
 
+    # Report quality tracking - auto-blocking for false reports
+    false_report_count = models.PositiveIntegerField(default=0)
+    rejected_report_count = models.PositiveIntegerField(default=0)
+    is_reporting_blocked = models.BooleanField(default=False)
+    reporting_blocked_at = models.DateTimeField(null=True, blank=True)
+    reporting_blocked_reason = models.TextField(blank=True)
+
     # Two-factor authentication (enforced for admins in production)
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_secret = models.CharField(max_length=64, blank=True)

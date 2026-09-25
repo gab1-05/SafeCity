@@ -2,36 +2,28 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
+  AlertCircle,
   BarChart3,
   Building2,
   CheckCircle2,
   FileClock,
+  Gauge,
   Megaphone,
   ScrollText,
   ShieldAlert,
   UserCog,
   Users,
-  Bell,
-  MapPin,
-  Clock,
-  TrendingUp,
-  TrendingDown,
-  UserPlus,
-  UserCheck,
-  UserX,
-  Lock,
-  Unlock,
-  Activity,
   Eye,
+  Badge as LucideBadge,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, Skeleton, StatCard } from "@/components/ui/feedback";
 import client from "@/api/client";
 import { useAuthStore } from "@/store/auth";
 import { timeAgo } from "@/lib/utils";
 import { STATUS_LABELS, type IncidentStatus } from "@/types";
-import { cn } from "@/lib/utils";
 
 interface AdminOverview {
   users: { 
@@ -211,7 +203,6 @@ export function AdminOverviewPage() {
               <ul className="space-y-2">
                 {data.departments.map((d) => {
                   const max = Math.max(...data.departments.map((x) => x.open_incidents), 1);
-                  const staffPct = d.staff_count > 0 ? Math.min(100, (d.open_incidents / d.staff_count) * 20) : 0;
                   return (
                     <li key={d.id} className="flex items-center gap-3 text-sm">
                       <span className="w-44 shrink-0 truncate">{d.name}</span>

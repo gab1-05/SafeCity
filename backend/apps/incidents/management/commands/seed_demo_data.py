@@ -37,7 +37,7 @@ class Command(BaseCommand):
         self._sla_rules()
         self._incidents()
         self._announcements()
-        self.stdout.write(self.style.SUCCESS("✔ Demo data seeded."))
+        self.stdout.write(self.style.SUCCESS("Demo data seeded."))
 
     # ── helpers ──────────────────────────────────────────────
     def _get_user(self, email, password, **fields):
@@ -45,6 +45,11 @@ class Command(BaseCommand):
         if created:
             user.set_password(password)
             user.save(update_fields=["password"])
+        elif "role" in fields and user.role != fields["role"]:
+            # Re-running the seeder must repair accounts seeded with a stale
+            # role (citizen demo logins were once seeded as volunteers).
+            user.role = fields["role"]
+            user.save(update_fields=["role"])
         return user
 
     def _departments(self):
@@ -124,17 +129,23 @@ class Command(BaseCommand):
 
     def _zones_and_wards(self):
         self.wards = []
-        zone_defs = [("Zone 1", "z1"), ("Zone 2", "z2"), ("Zone 3", "z3")]
+        zone_defs = [
+            ("North Zone", "north"),
+            ("South Zone", "south"),
+            ("East Zone", "east"),
+            ("West Zone", "west"),
+            ("Central Zone", "central"),
+        ]
         for zname, zcode in zone_defs:
             zone, _ = Zone.objects.get_or_create(code=zcode, defaults={"name": zname})
-            for widx in range(1, 4):
+            for widx in range(1, 6):
                 ward, _ = Ward.objects.get_or_create(
                     code=f"{zcode}-w{widx}",
                     defaults={
                         "name": f"{zname} Ward {widx}",
                         "zone": zone,
-                        "latitude": SEED_LAT + random.uniform(-0.05, 0.05),
-                        "longitude": SEED_LNG + random.uniform(-0.05, 0.05),
+                        "latitude": SEED_LAT + random.uniform(-0.08, 0.08),
+                        "longitude": SEED_LNG + random.uniform(-0.08, 0.08),
                     },
                 )
                 self.wards.append(ward)
@@ -157,6 +168,7 @@ class Command(BaseCommand):
             ("Noise complaint", "noise-complaint", "law-order", False),
             ("Stray animal", "stray-animal", "health", False),
             ("Building damage", "building-damage", "roads", False),
+            ("Sanitation", "sanitation", "health", False),
             ("Other", "other", None, False),
         ]
         for order, (name, slug, dept_code, emergency) in enumerate(cat_defs, start=1):
@@ -273,6 +285,224 @@ class Command(BaseCommand):
                 "critical",
                 IncidentStatus.ASSIGNED,
                 "Live wire hanging at child height.",
+            ),
+            # Additional incidents for better geographic spread
+            (
+                "Manhole cover missing on highway",
+                "road-damage",
+                "critical",
+                IncidentStatus.VERIFIED,
+                "Open manhole on service lane - immediate danger to vehicles.",
+            ),
+            (
+                "Sewage overflow near market",
+                "water-leakage",
+                "high",
+                IncidentStatus.ASSIGNED,
+                "Raw sewage spilling onto pedestrian walkway near vegetable market.",
+            ),
+            (
+                "Construction debris on footpath",
+                "illegal-dumping",
+                "medium",
+                IncidentStatus.SUBMITTED,
+                "Building materials blocking wheelchair access on main footpath.",
+            ),
+            (
+                "Dead streetlights on bridge",
+                "broken-streetlight",
+                "medium",
+                IncidentStatus.UNDER_REVIEW,
+                "Multiple lights out on river bridge - safety concern at night.",
+            ),
+            (
+                "Transformer sparking in residential area",
+                "electrical-hazard",
+                "critical",
+                IncidentStatus.ESCALATED,
+                "Loud buzzing and sparks from transformer box near apartment complex.",
+            ),
+            (
+                "Waterlogging in underpass",
+                "flooding",
+                "high",
+                IncidentStatus.IN_PROGRESS,
+                "Knee-deep water in railway underpass after heavy rain.",
+            ),
+            (
+                "Stray cattle blocking traffic",
+                "stray-animal",
+                "medium",
+                IncidentStatus.VERIFIED,
+                "Cows resting on main road during peak hours near railway station.",
+            ),
+            (
+                "Cracked footpath tiles - trip hazard",
+                "road-damage",
+                "low",
+                IncidentStatus.SUBMITTED,
+                "Broken paving stones causing elderly residents to trip.",
+            ),
+            (
+                "Overflowing community bin",
+                "garbage-accumulation",
+                "medium",
+                IncidentStatus.ASSIGNED,
+                "Bin not emptied for 5 days; waste spilling onto road.",
+            ),
+            (
+                "Gas leak smell near restaurant",
+                "public-safety-threat",
+                "critical",
+                IncidentStatus.ESCALATED,
+                "Strong gas odor reported by multiple residents near food court.",
+            ),
+            (
+                "Abandoned vehicle in no-parking zone",
+                "traffic-accident",
+                "low",
+                IncidentStatus.VERIFIED,
+                "Car parked for 3+ weeks blocking emergency vehicle access.",
+            ),
+            (
+                "Broken park bench with exposed nails",
+                "building-damage",
+                "medium",
+                IncidentStatus.SUBMITTED,
+                "Metal bench frame damaged - sharp edges facing playground.",
+            ),
+            (
+                "Mosquito breeding in stagnant water",
+                "sanitation",
+                "high",
+                IncidentStatus.IN_PROGRESS,
+                "Construction site water tank uncovered - dengue risk in area.",
+            ),
+            (
+                "Elevator stuck in municipal building",
+                "public-safety-threat",
+                "high",
+                IncidentStatus.ASSIGNED,
+                "Senior citizens trapped for 45 mins; maintenance delayed.",
+            ),
+            (
+                "Missing speed breakers near school",
+                "road-damage",
+                "high",
+                IncidentStatus.VERIFIED,
+                "Vehicles speeding past school zone; children at risk.",
+            ),
+            (
+                "Clogged storm drain causing backflow",
+                "flooding",
+                "critical",
+                IncidentStatus.IN_PROGRESS,
+                "Drain blocked with plastic waste - water entering ground floor flats.",
+            ),
+            (
+                "Illegal banner on pedestrian bridge",
+                "public-safety-threat",
+                "low",
+                IncidentStatus.REJECTED,
+                "Political banner blocking walkway - removed by enforcement.",
+            ),
+            (
+                "Street vendor blocking fire exit",
+                "fire",
+                "medium",
+                IncidentStatus.VERIFIED,
+                "Food cart parked directly in front of mall emergency exit.",
+            ),
+            (
+                "Pothole cluster on arterial road",
+                "road-damage",
+                "high",
+                IncidentStatus.RESOLVED,
+                "Series of potholes over 200m stretch - patched by roads team.",
+            ),
+            (
+                "Water meter leaking in apartment block",
+                "water-leakage",
+                "medium",
+                IncidentStatus.CLOSED,
+                "Continuous leak from main meter - meter replaced.",
+            ),
+            (
+                "Flickering lights in subway station",
+                "broken-streetlight",
+                "low",
+                IncidentStatus.RESOLVED,
+                "Intermittent lighting causing discomfort to commuters.",
+            ),
+            (
+                "Dumpster fire in alleyway",
+                "fire",
+                "critical",
+                IncidentStatus.CLOSED,
+                "Small fire in waste container - quickly contained by fire dept.",
+            ),
+            (
+                "Open excavation without barricades",
+                "public-safety-threat",
+                "critical",
+                IncidentStatus.ESCALATED,
+                "Construction pit left unguarded overnight near busy junction.",
+            ),
+            (
+                "Noise from late-night factory",
+                "noise-complaint",
+                "medium",
+                IncidentStatus.REJECTED,
+                "Industrial noise within permitted decibel limits per inspection.",
+            ),
+            (
+                "Faded zebra crossing markings",
+                "road-damage",
+                "medium",
+                IncidentStatus.VERIFIED,
+                "Pedestrian crossing invisible at night near hospital.",
+            ),
+            (
+                "Broken drain cover in cycle lane",
+                "road-damage",
+                "high",
+                IncidentStatus.ASSIGNED,
+                "Cyclist injured by uncovered drain - urgent repair needed.",
+            ),
+            (
+                "Garbage burning causing smoke",
+                "garbage-accumulation",
+                "medium",
+                IncidentStatus.IN_PROGRESS,
+                "Municipal workers burning waste - air quality complaint.",
+            ),
+            (
+                "Exposed wiring on streetlight pole",
+                "electrical-hazard",
+                "critical",
+                IncidentStatus.ESCALATED,
+                "Live wires at child height after storm damage.",
+            ),
+            (
+                "Blocked ambulance access road",
+                "traffic-accident",
+                "critical",
+                IncidentStatus.VERIFIED,
+                "Parked vehicles preventing emergency access to clinic.",
+            ),
+            (
+                "Collapsed boundary wall of park",
+                "building-damage",
+                "high",
+                IncidentStatus.ASSIGNED,
+                "Storm-damaged wall - bricks fallen onto jogging track.",
+            ),
+            (
+                "Stray monkeys entering homes",
+                "stray-animal",
+                "high",
+                IncidentStatus.VERIFIED,
+                "Troop of monkeys damaging property in residential colony.",
             ),
         ]
         for idx, (title, cat_slug, severity, status, description) in enumerate(scenarios):

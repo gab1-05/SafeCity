@@ -64,19 +64,25 @@ class AdminOverviewView(APIView):
             / Count("id"),
         )
 
-        departments = []
-        for dept in Department.objects.all().order_by("name"):
-            dept_staff = User.objects.filter(department=dept, is_active=True).exclude(role=UserRole.CITIZEN).count()
-            departments.append(
-                {
-                    "id": str(dept.id),
-                    "name": dept.name,
-                    "open_incidents": Incident.objects.filter(
-                        department=dept, status__in=open_statuses
-                    ).count(),
-                    "staff_count": dept_staff,
-                }
-            )
+        departments = [
+            {
+                "id": str(dept.id),
+                "name": dept.name,
+                "open_incidents": dept.open_incidents,
+                "staff_count": dept.staff_count,
+            }
+            # Single annotated pass — previously 2 queries per department.
+            for dept in Department.objects.annotate(
+                open_incidents=Count(
+                    "incidents", filter=Q(status__in=open_statuses), distinct=True
+                ),
+                staff_count=Count(
+                    "members",
+                    filter=Q(members__is_active=True) & ~Q(members__role=UserRole.CITIZEN),
+                    distinct=True,
+                ),
+            ).order_by("name")
+        ]
 
         deletion_requests = [
             {

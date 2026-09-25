@@ -5,6 +5,12 @@ Authentication API routes: /api/v1/auth/...
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
+from apps.accounts.views_2fa import (
+    TwoFactorDisableView,
+    TwoFactorRegenerateRecoveryCodesView,
+    TwoFactorSetupView,
+    TwoFactorVerifyLoginView,
+)
 from apps.accounts.views_auth import (
     ChangePasswordView,
     GoogleOAuthView,
@@ -16,12 +22,6 @@ from apps.accounts.views_auth import (
     RegisterView,
     SessionDeleteView,
     SessionListView,
-)
-from apps.accounts.views_2fa import (
-    TwoFactorDisableView,
-    TwoFactorRegenerateRecoveryCodesView,
-    TwoFactorSetupView,
-    TwoFactorVerifyLoginView,
 )
 
 urlpatterns = [

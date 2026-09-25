@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   BarChart3,
-  Database,
   FileWarning,
   Gauge,
   LayoutDashboard,
@@ -29,6 +28,10 @@ import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/CommandPalette";
 import { wsService } from "@/services/websocket";
 import { useToast } from "@/components/ui/toast";
+
+/** Payloads pushed over the WebSocket bridge (see backend consumers). */
+type NotificationPayload = { title?: string; body?: string; type?: string };
+type IncidentUpdatePayload = { id: string };
 
 const NAV_BY_ROLE: Record<string, Array<{ to: string; label: string; icon: React.ReactNode }>> = {
   citizen: [
@@ -57,7 +60,6 @@ const NAV_BY_ROLE: Record<string, Array<{ to: string; label: string; icon: React
     { to: "/admin/announcements", label: "Announcements", icon: <Megaphone className="h-4 w-4" /> },
     { to: "/admin/users", label: "Users", icon: <Users className="h-4 w-4" /> },
     { to: "/admin/audit", label: "Audit Logs", icon: <ScrollText className="h-4 w-4" /> },
-    { to: "/admin/demo-data", label: "Demo Data", icon: <Database className="h-4 w-4" /> },
   ],
   superuser: [
     { to: "/admin", label: "Admin Overview", icon: <Gauge className="h-4 w-4" /> },
@@ -67,7 +69,6 @@ const NAV_BY_ROLE: Record<string, Array<{ to: string; label: string; icon: React
     { to: "/admin/announcements", label: "Announcements", icon: <Megaphone className="h-4 w-4" /> },
     { to: "/admin/users", label: "Users", icon: <Users className="h-4 w-4" /> },
     { to: "/admin/audit", label: "Audit Logs", icon: <ScrollText className="h-4 w-4" /> },
-    { to: "/admin/demo-data", label: "Demo Data", icon: <Database className="h-4 w-4" /> },
   ],
 };
 
@@ -124,7 +125,7 @@ export function AppLayout() {
   }, [notifications?.unread_count]);
 
   useEffect(() => {
-    const unsubscribe = wsService.on("notification", (payload: any) => {
+    const unsubscribe = wsService.on<NotificationPayload>("notification", (payload) => {
       setUnreadCount((prev) => prev + 1);
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       toast({
@@ -134,7 +135,7 @@ export function AppLayout() {
       });
     });
 
-    const unsubscribeIncident = wsService.on("incident_update", (payload: any) => {
+    const unsubscribeIncident = wsService.on<IncidentUpdatePayload>("incident_update", (payload) => {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
       queryClient.invalidateQueries({ queryKey: ["incident", payload.id] });
     });

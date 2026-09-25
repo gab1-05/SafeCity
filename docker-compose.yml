@@ -96,11 +96,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # The image healthcheck curls :8000 (the web server); workers have none.
+    # Worker liveness: ping this container's own worker node. $$ escapes compose
+    # interpolation so the shell expands $HOSTNAME (single quotes would not);
+    # inspect ping exits non-zero when no node replies.
     healthcheck:
-      test: ["CMD-SHELL", "celery -A config inspect ping --destination 'celery@$$HOSTNAME' || exit 1"]
+      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$${HOSTNAME} -t 10 || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 5
       start_period: 30s
 
@@ -128,6 +130,7 @@ services:
       # Must follow BACKEND_PORT, so the SPA reaches the API even when the
       # host port is overridden (e.g. 8080 taken by another service).
       VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-18081}/api/v1
+      VITE_WS_URL: ws://localhost:${BACKEND_PORT:-18081}/ws/
       DOCKER: "true"
     volumes:
       - ./frontend:/app
