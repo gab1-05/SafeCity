@@ -7,7 +7,7 @@ SafeCity is a Smart City Incident Management and Civic Response Platform. Citize
 
 ---
 
-## ✨ Working Features
+## Working Features
 
 ### Frontend (React 18 + TypeScript + Vite + Tailwind)
 - **Modern Design System** — Comprehensive CSS variables for colors, spacing, typography, shadows, radii, transitions
