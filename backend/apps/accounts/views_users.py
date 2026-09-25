@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import DeletionRequest, User, UserRole
+from apps.audit.services import log_action
 from apps.accounts.permissions import can_manage_users
 from apps.accounts.serializers import (
     UserManagementSerializer,
@@ -37,8 +38,10 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         return qs.none()
 
     def list(self, request, *args, **kwargs):
-        if request.query_params.get("role"):
-            self.queryset = self.filter_queryset(self.get_queryset())
+        # Support multiple roles: ?role=department_staff&role=emergency_responder&role=volunteer
+        roles = request.query_params.getlist("role")
+        if roles:
+            self.queryset = self.filter_queryset(self.get_queryset()).filter(role__in=roles)
         return super().list(request, *args, **kwargs)
 
 
@@ -190,3 +193,51 @@ class DeletionRequestProcessView(APIView):
             request=request,
         )
         return Response({"detail": f"Request {decision}d."})
+
+
+class UserUnblockReportingView(APIView):
+    """Restore reporting access for a citizen who was auto-blocked. Admin only."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        if not can_manage_users(request.user):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        if user.role != UserRole.CITIZEN:
+            return Response(
+                {"detail": "Only citizens can have reporting access restored."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not user.is_reporting_blocked:
+            return Response(
+                {"detail": "User is not blocked from reporting."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.false_report_count = 0
+        user.rejected_report_count = 0
+        user.is_reporting_blocked = False
+        user.reporting_blocked_at = None
+        user.reporting_blocked_reason = ""
+        user.save(update_fields=[
+            "false_report_count",
+            "rejected_report_count",
+            "is_reporting_blocked",
+            "reporting_blocked_at",
+            "reporting_blocked_reason",
+        ])
+        log_action(
+            actor=request.user,
+            action="user.reporting_unblocked",
+            obj=user,
+            changes={
+                "false_report_count": 0,
+                "rejected_report_count": 0,
+                "is_reporting_blocked": False,
+            },
+            request=request,
+        )
+        return Response({"id": str(user.id), "is_reporting_blocked": False})

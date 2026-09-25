@@ -2,6 +2,7 @@
 Department API: list/detail plus workload statistics.
 """
 
+from django.db.models import Count, Q
 from rest_framework import mixins, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -13,7 +14,11 @@ from apps.incidents.models import Incident, IncidentStatus
 
 
 class DepartmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    queryset = Department.objects.filter(is_active=True)
+    # Annotated so DepartmentSerializer.member_count never reads a relation
+    # (or runs a COUNT) per row.
+    queryset = Department.objects.filter(is_active=True).annotate(
+        member_count=Count("members", filter=Q(members__is_active=True), distinct=True)
+    )
     serializer_class = DepartmentSerializer
     permission_classes = [permissions.AllowAny]  # reference data for reporting form
     ordering = ["name"]

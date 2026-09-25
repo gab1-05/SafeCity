@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, FileText, Image, MapPin, RotateCcw, Send, Star, UploadCloud, MessageSquare, Download, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, Image, MapPin, RotateCcw, Send, Star, UploadCloud, MessageSquare, Download, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
@@ -14,27 +14,72 @@ import { useAuthStore } from "@/store/auth";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { MediaLightbox } from "@/components/incident/MediaLightbox";
-import type { IncidentStatus } from "@/types";
+import type { IncidentStatus, UserRole } from "@/types";
 
-const AUTHORITY_ACTIONS: Record<string, { label: string; to: IncidentStatus; variant?: "danger" | "success" }[]> = {
+/** Shape required by MediaLightbox. */
+type LightboxMedia = {
+  id: string;
+  url: string;
+  media_type: string;
+  caption: string;
+  mime_type: string;
+};
+
+type AuthorityAction = {
+  label: string;
+  to: IncidentStatus;
+  variant?: "danger" | "success";
+  /**
+   * Roles allowed for this transition. Mirrors the `roles` sets in
+   * `TRANSITIONS` (backend/apps/incidents/services.py) — keep in sync.
+   * Omitting it means every authority role may perform the transition.
+   */
+  roles?: UserRole[];
+};
+
+const AUTHORITY_ACTIONS: Record<string, AuthorityAction[]> = {
   submitted: [
-    { label: "Start review", to: "under_review" },
-    { label: "Verify", to: "verified", variant: "success" },
-    { label: "Reject", to: "rejected", variant: "danger" },
+    { label: "Start review", to: "under_review", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Verify", to: "verified", variant: "success", roles: ["city_admin", "superuser"] },
+    { label: "Reject", to: "rejected", variant: "danger", roles: ["city_admin", "superuser"] },
+    { label: "Mark duplicate", to: "duplicate", variant: "danger", roles: ["city_admin", "superuser"] },
+    { label: "Assign", to: "assigned", roles: ["city_admin", "superuser", "department_staff"] },
   ],
   under_review: [
-    { label: "Verify", to: "verified", variant: "success" },
-    { label: "Reject", to: "rejected", variant: "danger" },
+    { label: "Verify", to: "verified", variant: "success", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Reject", to: "rejected", variant: "danger", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Mark duplicate", to: "duplicate", variant: "danger", roles: ["city_admin", "superuser"] },
   ],
-  assigned: [{ label: "Start work", to: "in_progress" }],
+  verified: [
+    { label: "Assign", to: "assigned", roles: ["city_admin", "superuser", "department_staff"] },
+  ],
+  assigned: [
+    { label: "Start work", to: "in_progress", roles: ["department_staff", "city_admin", "superuser", "emergency_responder"] },
+    { label: "Request info", to: "awaiting_info", roles: ["department_staff", "city_admin", "superuser"] },
+  ],
   in_progress: [
-    { label: "Request info", to: "awaiting_info" },
-    { label: "Resolve", to: "resolved", variant: "success" },
+    { label: "Request info", to: "awaiting_info", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Escalate", to: "escalated", variant: "danger", roles: ["department_staff", "city_admin", "superuser", "emergency_responder"] },
+    { label: "Resolve", to: "resolved", variant: "success", roles: ["department_staff", "city_admin", "superuser", "emergency_responder"] },
   ],
-  awaiting_info: [{ label: "Resume work", to: "in_progress" }],
-  escalated: [{ label: "Resume work", to: "in_progress" }],
-  reopened: [{ label: "Start work", to: "in_progress" }],
-  resolved: [{ label: "Close", to: "closed" }],
+  awaiting_info: [
+    { label: "Resume work", to: "in_progress", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Escalate", to: "escalated", variant: "danger", roles: ["city_admin", "superuser"] },
+  ],
+  escalated: [
+    { label: "Resume work", to: "in_progress", roles: ["department_staff", "city_admin", "superuser", "emergency_responder"] },
+    { label: "Resolve", to: "resolved", variant: "success", roles: ["department_staff", "city_admin", "superuser"] },
+  ],
+  resolved: [
+    { label: "Close", to: "closed", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Reopen", to: "reopened", roles: ["city_admin", "superuser"] },
+  ],
+  reopened: [
+    { label: "Start work", to: "in_progress", roles: ["department_staff", "city_admin", "superuser"] },
+    { label: "Assign", to: "assigned", roles: ["city_admin", "superuser"] },
+  ],
+  rejected: [{ label: "Close", to: "closed", roles: ["city_admin", "superuser"] }],
+  duplicate: [{ label: "Close", to: "closed", roles: ["city_admin", "superuser"] }],
 };
 
 export function IncidentDetailPage() {
@@ -50,7 +95,7 @@ export function IncidentDetailPage() {
   const [reopening, setReopening] = useState(false);
   const [resolutionComment, setResolutionComment] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState<{ index: number; media: any[] } | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState<{ index: number; media: LightboxMedia[] } | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const isAuthority =
@@ -83,11 +128,24 @@ export function IncidentDetailPage() {
     enabled: !!id,
   });
 
+  /** IncidentMediaItem → MediaLightbox item (the lightbox needs a non-null url). */
+  const lightboxItems: LightboxMedia[] = (media ?? []).map((m) => ({
+    id: m.id,
+    url: m.url ?? "",
+    media_type: m.media_type,
+    caption: m.caption,
+    mime_type: m.mime_type,
+  }));
+
   if (isPending) return <Skeleton className="h-96 w-full" />;
   if (isError || !incident)
     return <ErrorState message="Could not load this incident." onRetry={() => window.location.reload()} />;
 
-  const actions = isAuthority ? (AUTHORITY_ACTIONS[incident.status] ?? []) : [];
+  const actions = isAuthority
+    ? (AUTHORITY_ACTIONS[incident.status] ?? []).filter(
+        (action) => !!action.roles && !!user?.role && action.roles.includes(user.role),
+      )
+    : [];
 
   const isReporter = incident.is_reporter === true;
 
@@ -289,7 +347,7 @@ export function IncidentDetailPage() {
                         onClick={(e) => {
                           if (item.media_type === "image") {
                             e.preventDefault();
-                            setLightboxOpen({ index: media.indexOf(item), media });
+                            setLightboxOpen({ index: media.indexOf(item), media: lightboxItems });
                           }
                         }}
                       >
@@ -303,7 +361,7 @@ export function IncidentDetailPage() {
                         size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setLightboxOpen({ index: media.indexOf(item), media });
+                          setLightboxOpen({ index: media.indexOf(item), media: lightboxItems });
                         }}
                         aria-label="View fullscreen"
                       >
@@ -449,7 +507,7 @@ export function IncidentDetailPage() {
                           src={c.media_url}
                           alt="Commented photo"
                           className="max-h-32 rounded border cursor-pointer"
-                          onClick={() => setLightboxOpen({ index: 0, media: [{ id: c.id, url: c.media_url, media_type: "image", caption: "Photo comment" }] })}
+                          onClick={() => setLightboxOpen({ index: 0, media: [{ id: c.id, url: c.media_url ?? "", media_type: "image", caption: "Photo comment", mime_type: "image/jpeg" }] })}
                         />
                       </div>
                     )}
@@ -501,7 +559,7 @@ export function IncidentDetailPage() {
                     Internal note (not visible to citizens)
                   </label>
                 )}
-                <Button size="sm" onClick={submitComment} disabled={busy || !comment.trim()}>
+                <Button size="sm" onClick={() => void submitComment()} disabled={busy || !comment.trim()}>
                   <Send className="h-4 w-4" /> Post
                 </Button>
               </div>

@@ -1,0 +1,9 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.5, pytest-9.1.1, pluggy-1.6.0
+django: version: 5.0.14, settings: config.settings.test (from env)
+rootdir: C:\projects\SafeCity\backend
+configfile: pytest.ini
+testpaths: tests, apps/ai
+plugins: Faker-40.39.0, cov-7.1.0, django-4.14.0
+collected 130 items
+

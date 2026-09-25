@@ -86,7 +86,11 @@ class SafeCityTokenObtainPairSerializer(TokenObtainPairSerializer):
             "full_name": self.user.full_name,
         }
         if self.user.two_factor_enabled:
+            # No usable session yet: the caller must pass the second factor.
+            # The view attaches a short-lived challenge token instead.
             data["requires_2fa"] = True
+            data.pop("access", None)
+            data.pop("refresh", None)
         return data
 
 
@@ -159,7 +163,9 @@ class TwoFactorSetupSerializer(serializers.Serializer):
 
 
 class TwoFactorVerifySerializer(serializers.Serializer):
-    token = serializers.CharField(min_length=6, max_length=6)
+    # Accepts a 6-digit TOTP code *or* an 8-char recovery code (both flows
+    # fall back to recovery codes, so the field must not be locked to 6 chars).
+    token = serializers.CharField(min_length=6, max_length=64)
 
 
 class DepartmentSerializer(serializers.ModelSerializer):

@@ -43,7 +43,7 @@ export function IncidentQueuePage() {
 
   const { data: staff } = useQuery({
     queryKey: ["staff"],
-    queryFn: () => usersApi.staff(),
+    queryFn: () => usersApi.staff(undefined, ["department_staff", "emergency_responder", "volunteer"]),
     enabled: assigning !== null,
   });
 
@@ -180,7 +180,7 @@ export function IncidentQueuePage() {
             Filters
             {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
-          <Button variant="outline" onClick={() => incidentsApi.exportCsv(filters)}>
+          <Button variant="outline" onClick={() => incidentsApi.exportIncidentCsv(filters)}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
         </div>
@@ -303,7 +303,7 @@ export function IncidentQueuePage() {
                   }}>
                     <X className="h-4 w-4" /> Clear All Filters
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={refetch}>
+                  <Button variant="ghost" size="sm" onClick={() => void refetch()}>
                     <MoreHorizontal className="h-4 w-4" /> Refresh
                   </Button>
                 </div>

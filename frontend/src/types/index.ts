@@ -121,6 +121,10 @@ export interface IncidentComment {
   body: string;
   is_internal: boolean;
   created_at: string;
+  /** PK of the attached IncidentMedia, when the comment carries a photo. */
+  media?: string | null;
+  /** Absolute URL of the attached media, when present. */
+  media_url?: string | null;
 }
 
 export interface IncidentMediaItem {

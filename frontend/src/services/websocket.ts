@@ -1,9 +1,12 @@
 type WebSocketMessage = {
   type: string;
-  payload: any;
+  payload: unknown;
 };
 
-type MessageHandler = (payload: any) => void;
+type MessageHandler<T = unknown> = (payload: T) => void;
+
+/** Console helper — `warn` is allowed by the project's no-console lint rule. */
+const log = (...args: unknown[]) => console.warn("[WS]", ...args);
 
 class WebSocketService {
   private ws: WebSocket | null = null;
@@ -11,7 +14,7 @@ class WebSocketService {
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
-  private handlers: Map<string, Set<MessageHandler>> = new Map();
+  private handlers: Map<string, Set<MessageHandler<never>>> = new Map();
   private isConnecting: boolean = false;
   private shouldReconnect: boolean = true;
 
@@ -27,7 +30,7 @@ class WebSocketService {
       this.ws = new WebSocket(this.url);
 
       this.ws.onopen = () => {
-        console.log("[WS] Connected");
+        log("Connected");
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.emit("connected", {});
@@ -35,7 +38,7 @@ class WebSocketService {
 
       this.ws.onmessage = (event) => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data);
+          const message: WebSocketMessage = JSON.parse(event.data as string);
           this.emit(message.type, message.payload);
         } catch (e) {
           console.warn("[WS] Failed to parse message:", e);
@@ -43,14 +46,14 @@ class WebSocketService {
       };
 
       this.ws.onclose = (event) => {
-        console.log("[WS] Disconnected:", event.code, event.reason);
+        log("Disconnected:", event.code, event.reason);
         this.isConnecting = false;
         this.emit("disconnected", { code: event.code, reason: event.reason });
 
         if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-          console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+          log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
           setTimeout(() => this.connect(), delay);
         }
       };
@@ -73,7 +76,7 @@ class WebSocketService {
     }
   }
 
-  send(type: string, payload: any) {
+  send(type: string, payload: unknown) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }));
     } else {
@@ -81,23 +84,23 @@ class WebSocketService {
     }
   }
 
-  on(type: string, handler: MessageHandler) {
+  on<T = unknown>(type: string, handler: MessageHandler<T>) {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set());
     }
-    this.handlers.get(type)!.add(handler);
+    this.handlers.get(type)!.add(handler as MessageHandler<never>);
 
     return () => this.off(type, handler);
   }
 
-  off(type: string, handler: MessageHandler) {
-    this.handlers.get(type)?.delete(handler);
+  off<T = unknown>(type: string, handler: MessageHandler<T>) {
+    this.handlers.get(type)?.delete(handler as MessageHandler<never>);
   }
 
-  private emit(type: string, payload: any) {
+  private emit(type: string, payload: unknown) {
     this.handlers.get(type)?.forEach((handler) => {
       try {
-        handler(payload);
+        (handler as MessageHandler)(payload);
       } catch (e) {
         console.error(`[WS] Handler error for ${type}:`, e);
       }
@@ -112,15 +115,15 @@ class WebSocketService {
 export const wsService = new WebSocketService();
 
 export function useWebSocket() {
-  const subscribe = (type: string, handler: MessageHandler) => {
+  const subscribe = <T = unknown>(type: string, handler: MessageHandler<T>) => {
     return wsService.on(type, handler);
   };
 
-  const unsubscribe = (type: string, handler: MessageHandler) => {
+  const unsubscribe = <T = unknown>(type: string, handler: MessageHandler<T>) => {
     wsService.off(type, handler);
   };
 
-  const send = (type: string, payload: any) => {
+  const send = (type: string, payload: unknown) => {
     wsService.send(type, payload);
   };
 

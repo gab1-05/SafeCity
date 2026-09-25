@@ -64,6 +64,36 @@ CRITICAL_WORDS = {
 }
 HIGH_WORDS = {"injury", "accident", "hazard", "flooding", "flood", "leak", "unsafe"}
 
+VALID_SEVERITIES = {"low", "medium", "high", "critical"}
+
+# Tokeniser for keyword matching (letters/digits only, lowercased by the caller).
+WORD_RE = re.compile(r"[a-z0-9]+")
+# Light suffix tolerance for plurals/gerunds: "wires", "flooded", "flooding",
+# "leaky", "loudly", "electricity"… but never "cattle"/"fireplace"/"loudspeaker".
+WORD_SUFFIXES = {"s", "es", "ed", "d", "ing", "ly", "y", "er", "ers", "est", "ity", "al"}
+
+
+def _token_matches(keyword: str, token: str) -> bool:
+    """Exact token, or the keyword plus a small plural/gerund-style suffix."""
+    if token == keyword:
+        return True
+    if not token.startswith(keyword):
+        return False
+    return len(keyword) + 1 <= len(token) <= len(keyword) + 3 and token[len(keyword) :] in WORD_SUFFIXES
+
+
+def _count_hits(keyword: str, text: str, tokens: list[str]) -> int:
+    """
+    Count keyword occurrences in a token-aware way.
+
+    Phrase keywords ("road damage", "street light") stay substring matches on
+    the whole text; single words only match whole tokens (with suffix slack),
+    so "wire" no longer fires on "wiredrawn" or "gwale".
+    """
+    if " " in keyword:
+        return text.count(keyword)
+    return sum(1 for token in tokens if _token_matches(keyword, token))
+
 
 def scrub_pii(text: str) -> str:
     """Remove obvious PII before any external AI call (phones, emails, tax IDs)."""
@@ -81,12 +111,12 @@ class MockAIProvider:
 
     def suggest_category(self, title: str, description: str) -> dict:
         text = f"{title} {description}".lower()
+        tokens = WORD_RE.findall(text)
         best_slug, hits = None, 0
         for keyword, slug in KEYWORD_CATEGORY_MAP.items():
-            if keyword in text:
-                count = text.count(keyword)
-                if count > hits:
-                    best_slug, hits = slug, count
+            count = _count_hits(keyword, text, tokens)
+            if count > hits:
+                best_slug, hits = slug, count
         confidence = min(0.35 + hits * 0.15, 0.95) if best_slug else 0.2
         return {"category_slug": best_slug, "confidence": round(confidence, 2)}
 
@@ -178,8 +208,13 @@ class OpenAICompatibleProvider:
             "{severity, confidence}",
             description,
         )
+        severity = str(result.get("severity", "")).strip().lower()
+        if severity not in VALID_SEVERITIES:
+            # Never trust a hallucinated value (e.g. "catastrophic") — fall
+            # back to the deterministic mock heuristic instead.
+            return MockAIProvider().suggest_severity(description)
         return {
-            "severity": result.get("severity", "medium"),
+            "severity": severity,
             "confidence": float(result.get("confidence", 0.5)),
         }
 

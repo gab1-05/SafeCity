@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Search, Keyboard, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
-import { authApi } from "@/api/auth";
 
 interface CommandItem {
   id: string;
@@ -22,7 +21,7 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { user, theme, toggleTheme } = useAuthStore();
+  const { user, toggleTheme } = useAuthStore();
 
   const commands: CommandItem[] = [
     { id: "dashboard", label: "Dashboard", description: "Go to your dashboard", shortcut: "⌘1", icon: "🏠", action: () => navigate("/dashboard"), section: "Navigation", keywords: ["home", "main"] },

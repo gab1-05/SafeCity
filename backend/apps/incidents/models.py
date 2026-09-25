@@ -245,6 +245,16 @@ class Incident(UUIDModel):
             models.Index(fields=["sla_deadline"], name="idx_incident_sla"),
             models.Index(fields=["latitude", "longitude"], name="idx_incident_latlng"),
             models.Index(fields=["is_emergency"], name="idx_incident_emergency"),
+            # Composite indexes for the hot list/queue queries: every list view
+            # filters by an equality predicate and then sorts by -created_at.
+            models.Index(fields=["status", "-created_at"], name="idx_incident_status_created"),
+            models.Index(fields=["reporter", "-created_at"], name="idx_incident_reporter_created"),
+            models.Index(
+                fields=["department", "status", "-created_at"],
+                name="idx_incident_dept_status",
+            ),
+            # SLA queries always pair sla_breached with a sla_deadline range.
+            models.Index(fields=["sla_breached", "sla_deadline"], name="idx_incident_sla_state"),
             GinIndex(fields=["search_vector"], name="idx_incident_search"),
         ]
         permissions = [

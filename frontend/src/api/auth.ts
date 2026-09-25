@@ -1,5 +1,5 @@
 import client from "./client";
-import { tokenStore } from "./client";
+import { challengeStore, tokenStore } from "./client";
 import axios from "axios";
 import type { Notification, User, UserRole, Paginated, Announcement } from "@/types";
 
@@ -12,6 +12,24 @@ export interface LoginPayload {
   email: string;
   password: string;
 }
+
+/** Normal login: full session issued immediately. */
+export interface LoginSuccess {
+  access: string;
+  refresh: string;
+  user: User;
+  requires_2fa?: false;
+}
+
+/** 2FA challenge: `access` is a 2-minute challenge token; no refresh yet. */
+export interface LoginChallenge {
+  access: string;
+  refresh?: undefined;
+  user: User;
+  requires_2fa: true;
+}
+
+export type LoginResult = LoginSuccess | LoginChallenge;
 
 export interface TwoFactorPayload {
   token: string;
@@ -42,16 +60,23 @@ export const authApi = {
     const { data } = await client.post("/auth/register/", payload);
     return data;
   },
-  login: async (payload: LoginPayload): Promise<{ access: string; refresh: string; user: User; requires_2fa?: boolean }> => {
-    const { data } = await client.post("/auth/token/", payload);
+  login: async (payload: LoginPayload): Promise<LoginResult> => {
+    const { data } = await client.post<LoginResult>("/auth/token/", payload);
     if (data.requires_2fa) {
+      // `access` is a 2-minute 2FA challenge, not a session: stash it so
+      // verify2fa can send it as the Authorization header.
+      if (data.access) challengeStore.set(data.access);
       return data;
     }
     tokenStore.set(data.access, data.refresh);
     return data;
   },
   verify2fa: async (payload: TwoFactorPayload): Promise<{ access: string; refresh: string; user: User }> => {
-    const { data } = await client.post("/auth/token/2fa/", payload);
+    const challenge = challengeStore.token;
+    const { data } = await client.post("/auth/token/2fa/", payload, {
+      headers: challenge ? { Authorization: `Bearer ${challenge}` } : undefined,
+    });
+    challengeStore.clear();
     tokenStore.set(data.access, data.refresh);
     return data;
   },
@@ -67,6 +92,7 @@ export const authApi = {
       await client.post("/auth/logout/", { refresh }).catch(() => undefined);
     }
     tokenStore.clear();
+    challengeStore.clear();
   },
   me: async (): Promise<User> => {
     const { data } = await client.get("/auth/me/");
@@ -104,6 +130,11 @@ export const authApi = {
     const { data } = await client.get("/auth/2fa/setup/");
     return data;
   },
+  /** Confirm setup with the first TOTP token — this is what actually enables 2FA. */
+  enable2fa: async (payload: TwoFactorPayload): Promise<{ detail: string }> => {
+    const { data } = await client.post("/auth/2fa/setup/", payload);
+    return data;
+  },
   disable2fa: async (payload: TwoFactorPayload): Promise<{ detail: string }> => {
     const { data } = await client.post("/auth/2fa/disable/", payload);
     return data;
@@ -131,9 +162,11 @@ export const notificationsApi = {
 };
 
 export const usersApi = {
-  staff: async (departmentId?: string): Promise<User[]> => {
+  staff: async (departmentId?: string, roles?: string[]): Promise<User[]> => {
+    const roleFilter = roles ?? ["department_staff", "emergency_responder", "volunteer"];
+    const roleQuery = roleFilter.map((r) => `role=${r}`).join("&");
     const { data } = await client.get(
-      `/users/?role=department_staff${departmentId ? `&department=${departmentId}` : ""}`,
+      `/users/?${roleQuery}${departmentId ? `&department=${departmentId}` : ""}`,
     );
     return data.results ?? data;
   },
@@ -145,6 +178,9 @@ export const usersApi = {
   },
   unlock: async (id: string): Promise<void> => {
     await client.post(`/users/${id}/unlock/`);
+  },
+  unblockReporting: async (id: string): Promise<void> => {
+    await client.post(`/users/${id}/unblock-reporting/`);
   },
 };
 

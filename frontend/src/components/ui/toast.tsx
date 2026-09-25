@@ -1,59 +1,99 @@
-import { toast as sonnerToast, Toaster } from "sonner";
+import { toast as sonnerToast, Toaster, type ExternalToast } from "sonner";
 
-export { sonnerToast as toast, Toaster };
+export { Toaster };
+export { sonnerToast as sonner };
 
-export type ToastType = "default" | "success" | "error" | "warning" | "info" | "loading";
+export type ToastVariant =
+  | "default"
+  | "success"
+  | "error"
+  | "warning"
+  | "info"
+  | "loading";
 
-type ToastOptions = {
+/** Structured payload used across the app: `toast({ title, description, variant })`. */
+export type ToastInput =
+  | string
+  | {
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      id?: string | number;
+      duration?: number;
+      action?: { label: string; onClick: () => void };
+    };
+
+type ToastOptions = Omit<Extract<ToastInput, object>, "title" | "variant">;
+
+type ResolvedToast = {
+  title: string;
   description?: string;
-  action?: { label: string; onClick: () => void };
-  duration?: number;
+  variant: ToastVariant;
+  options: ExternalToast;
 };
 
-type ToastMessage = string | { title: string; description?: string };
-
-const normalizeToast = (message: ToastMessage, options?: ToastOptions) => {
-  if (typeof message === "string") {
-    return { message, options };
+function resolve(input: ToastInput, extra?: ToastOptions): ResolvedToast {
+  if (typeof input === "string") {
+    return { title: input, variant: "default", options: { ...extra } };
   }
-  return { message: message.title, options: { ...options, description: message.description } };
+  const { title, description, variant = "default", ...options } = input;
+  return { title, description, variant, options: { ...options, ...extra } };
+}
+
+function show(input: ToastInput, extra?: ToastOptions): string | number {
+  const { title, description, variant, options } = resolve(input, extra);
+  const payload: ExternalToast = description ? { ...options, description } : options;
+  switch (variant) {
+    case "success":
+      return sonnerToast.success(title, payload);
+    case "error":
+      return sonnerToast.error(title, payload);
+    case "warning":
+      return sonnerToast.warning(title, payload);
+    case "info":
+      return sonnerToast.info(title, payload);
+    case "loading":
+      return sonnerToast.loading(title, payload);
+    default:
+      return sonnerToast(title, payload);
+  }
+}
+
+/** `toast` keeps sonner's method surface so `toast.success(...)` also works. */
+export const toast = Object.assign(show, {
+  success: sonnerToast.success,
+  error: sonnerToast.error,
+  warning: sonnerToast.warning,
+  info: sonnerToast.info,
+  loading: sonnerToast.loading,
+  message: sonnerToast.message,
+  promise: sonnerToast.promise,
+  dismiss: sonnerToast.dismiss,
+  custom: sonnerToast.custom,
+});
+
+const toastApi = {
+  toast: show,
+  success: (message: ToastInput, options?: ToastOptions) =>
+    show(typeof message === "string" ? message : { ...message, variant: "success" }, options),
+  error: (message: ToastInput, options?: ToastOptions) =>
+    show(typeof message === "string" ? message : { ...message, variant: "error" }, options),
+  warning: (message: ToastInput, options?: ToastOptions) =>
+    show(typeof message === "string" ? message : { ...message, variant: "warning" }, options),
+  info: (message: ToastInput, options?: ToastOptions) =>
+    show(typeof message === "string" ? message : { ...message, variant: "info" }, options),
+  loading: (message: ToastInput, options?: ToastOptions) =>
+    show(typeof message === "string" ? message : { ...message, variant: "loading" }, options),
+  promise: sonnerToast.promise,
+  dismiss: sonnerToast.dismiss,
+  custom: sonnerToast.custom,
 };
 
-export const useToast = () => {
-  const callToast = (fn: typeof sonnerToast.success, message: ToastMessage, options?: ToastOptions) => {
-    const { message: msg, options: opts } = normalizeToast(message, options);
-    return fn(msg, opts);
-  };
-
-  const toastMethods = {
-    success: (message: ToastMessage, options?: ToastOptions) =>
-      callToast(sonnerToast.success, message, options),
-    error: (message: ToastMessage, options?: ToastOptions) =>
-      callToast(sonnerToast.error, message, options),
-    warning: (message: ToastMessage, options?: ToastOptions) =>
-      callToast(sonnerToast.warning, message, options),
-    info: (message: ToastMessage, options?: ToastOptions) =>
-      callToast(sonnerToast.info, message, options),
-    loading: (message: ToastMessage, options?: ToastOptions) =>
-      callToast(sonnerToast.loading, message, options),
-    promise: <T,>(
-      promise: Promise<T>,
-      messages: {
-        loading: string;
-        success: string | ((data: T) => string);
-        error: string | ((error: unknown) => string);
-      }
-    ) => sonnerToast.promise(promise, messages),
-    dismiss: (id?: string | number) => sonnerToast.dismiss(id),
-    custom: (component: React.ReactNode, options?: { duration?: number }) =>
-      sonnerToast.custom(component as any, options),
-  };
-
-  return {
-    ...toastMethods,
-    toast: sonnerToast,
-  };
-};
+/**
+ * Stable singleton — the object identity never changes, so components can put
+ * it in `useEffect` dependency arrays without re-subscribing on every render.
+ */
+export const useToast = () => toastApi;
 
 export const ToasterComponent = () => (
   <Toaster

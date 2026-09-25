@@ -52,6 +52,8 @@ TRANSITIONS: dict[str, dict[str, set[str]]] = {
     },
     IncidentStatus.VERIFIED: {
         IncidentStatus.ASSIGNED: {"city_admin", "superuser", "department_staff"},
+        # Reporter reopens their own verified incident with new evidence.
+        IncidentStatus.SUBMITTED: {"citizen", "city_admin", "superuser"},
     },
     IncidentStatus.ASSIGNED: {
         IncidentStatus.IN_PROGRESS: {
@@ -82,6 +84,8 @@ TRANSITIONS: dict[str, dict[str, set[str]]] = {
     IncidentStatus.AWAITING_INFO: {
         IncidentStatus.IN_PROGRESS: {"citizen", "department_staff", "city_admin", "superuser"},
         IncidentStatus.ESCALATED: {"city_admin", "superuser"},
+        # Staff rejects the info request — the citizen cannot drive this one.
+        IncidentStatus.ASSIGNED: {"department_staff", "city_admin", "superuser"},
     },
     IncidentStatus.ESCALATED: {
         IncidentStatus.IN_PROGRESS: {
@@ -189,6 +193,15 @@ def create_incident(*, reporter, validated_data, request=None) -> Incident:
             {"detail": "Anonymous reporting is disabled.", "code": "anonymous_disabled"}
         )
 
+    # Check if user is blocked from reporting
+    if not is_anonymous and reporter.is_reporting_blocked:
+        raise WorkflowError(
+            {
+                "detail": "Your account has been temporarily blocked from submitting reports due to multiple rejected reports. Please contact support.",
+                "code": "reporting_blocked",
+            }
+        )
+
     incident = Incident(**validated_data)
     incident.reporter = reporter if not is_anonymous else None
     incident.department = assign_department_for_category(category)
@@ -215,6 +228,17 @@ def create_incident(*, reporter, validated_data, request=None) -> Incident:
             body=f"{category.name}: {incident.title}",
             incident=incident,
         )
+
+    # Notify the reporter (if not anonymous) that their report was submitted
+    if not is_anonymous and reporter:
+        notify(
+            user=reporter,
+            verb="incident.submitted",
+            title=f"Report submitted: {incident.reference_number}",
+            body=f"Your report '{incident.title}' has been submitted and is under review.",
+            incident=incident,
+        )
+
     return incident
 
 
@@ -224,10 +248,12 @@ def _anonymous_allowed() -> bool:
     return bool(settings.SAFECITY.get("ALLOW_ANONYMOUS_REPORTS", True))
 
 
-def notify_many_staff(department, *, verb, title, body, incident):
+def notify_many_staff(department, *, verb, title, body, incident, exclude=None):
     from apps.accounts.models import User as U
 
     staff = U.objects.filter(department=department, is_active=True).exclude(role=UserRole.CITIZEN)
+    if exclude is not None:
+        staff = staff.exclude(pk=exclude.pk)
     for member in staff:
         notify(user=member, verb=verb, title=title, body=body, incident=incident)
 
@@ -248,6 +274,16 @@ def change_status(
                 "detail": f"Transition {incident.status} → {to_status} is not allowed for you.",
                 "code": "invalid_transition",
             }
+        )
+    # A citizen may only (re)submit their own incident — both from draft and
+    # when reopening a verified one with new evidence.
+    if (
+        to_status == IncidentStatus.SUBMITTED
+        and user.role == UserRole.CITIZEN
+        and incident.reporter_id != user.id
+    ):
+        raise WorkflowError(
+            {"detail": "Only the reporter can submit this incident.", "code": "forbidden"}
         )
 
     from_status = incident.status
@@ -296,6 +332,10 @@ def change_status(
         request=request,
     )
 
+    # Track false/rejected reports for the reporter
+    if incident.reporter and to_status in (IncidentStatus.REJECTED, IncidentStatus.DUPLICATE):
+        _track_false_report(incident.reporter, to_status)
+
     _notify_status_change(incident, from_status, to_status, user, note)
     return incident
 
@@ -341,6 +381,54 @@ def _notify_status_change(incident, from_status, to_status, actor, note):
             body=note or "Incident escalated.",
             incident=incident,
         )
+    # Verified → assigned: wake up the owning department's staff queue
+    if (
+        from_status == IncidentStatus.VERIFIED
+        and to_status == IncidentStatus.ASSIGNED
+        and incident.department
+    ):
+        notify_many_staff(
+            incident.department,
+            verb="incident.assigned",
+            title=f"Assigned {incident.reference_number}",
+            body=note or f"{incident.title} — the verified incident was assigned.",
+            incident=incident,
+        )
+
+
+def _track_false_report(reporter, status: str) -> None:
+    """
+    Track rejected/duplicate reports for a user.
+    If a user exceeds the threshold, block their reporting ability.
+    """
+    from django.utils import timezone
+    from apps.accounts.models import UserRole
+
+    if not reporter or reporter.role != UserRole.CITIZEN:
+        return
+
+    if status == IncidentStatus.REJECTED:
+        reporter.rejected_report_count += 1
+    elif status == IncidentStatus.DUPLICATE:
+        reporter.false_report_count += 1
+
+    # Auto-block after 5 rejected + false reports combined
+    total_false = reporter.rejected_report_count + reporter.false_report_count
+    if total_false >= 5 and not reporter.is_reporting_blocked:
+        reporter.is_reporting_blocked = True
+        reporter.reporting_blocked_at = timezone.now()
+        reporter.reporting_blocked_reason = (
+            f"Auto-blocked after {total_false} rejected/duplicate reports. "
+            "Please contact support to restore reporting access."
+        )
+
+    reporter.save(update_fields=[
+        "rejected_report_count",
+        "false_report_count",
+        "is_reporting_blocked",
+        "reporting_blocked_at",
+        "reporting_blocked_reason",
+    ])
 
 
 @transaction.atomic
@@ -363,6 +451,13 @@ def assign_incident(*, incident, assignee, user, note="", request=None) -> Incid
         raise WorkflowError(
             {"detail": "Cannot assign outside your department.", "code": "forbidden_department"}
         )
+    if assignee == user:
+        raise WorkflowError(
+            {
+                "detail": "You cannot assign an incident to yourself",
+                "code": "self_assignment",
+            }
+        )
     if assignee.role != UserRole.DEPARTMENT_STAFF:
         raise WorkflowError(
             {"detail": "Assignee must be department staff.", "code": "invalid_assignee"}
@@ -376,6 +471,7 @@ def assign_incident(*, incident, assignee, user, note="", request=None) -> Incid
         )
 
     previous = incident.assigned_staff
+    previous_status = incident.status
     incident.assigned_staff = assignee
     if incident.status == IncidentStatus.VERIFIED or incident.status == IncidentStatus.SUBMITTED:
         incident.status = IncidentStatus.ASSIGNED
@@ -413,6 +509,16 @@ def assign_incident(*, incident, assignee, user, note="", request=None) -> Incid
             title=f"{incident.reference_number} assigned to {incident.department.name if incident.department else 'staff'}",
             body="Your report has been assigned and is being handled.",
             incident=incident,
+        )
+    # Verified → assigned also wakes up the rest of the department's staff.
+    if previous_status == IncidentStatus.VERIFIED and incident.department:
+        notify_many_staff(
+            incident.department,
+            verb="incident.assigned",
+            title=f"Assigned {incident.reference_number}",
+            body=f"{incident.title} — the verified incident was assigned.",
+            incident=incident,
+            exclude=assignee,
         )
     return incident
 

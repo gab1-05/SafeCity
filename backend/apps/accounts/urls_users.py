@@ -10,6 +10,7 @@ from apps.accounts.views_users import (
     DeletionRequestProcessView,
     UserDeactivateView,
     UserRoleUpdateView,
+    UserUnblockReportingView,
     UserUnlockView,
     UserViewSet,
 )
@@ -21,6 +22,7 @@ urlpatterns = [
     path("<uuid:pk>/role/", UserRoleUpdateView.as_view(), name="user-role-update"),
     path("<uuid:pk>/deactivate/", UserDeactivateView.as_view(), name="user-deactivate"),
     path("<uuid:pk>/unlock/", UserUnlockView.as_view(), name="user-unlock"),
+    path("<uuid:pk>/unblock-reporting/", UserUnblockReportingView.as_view(), name="user-unblock-reporting"),
     path("deletion-requests/", DeletionRequestListView.as_view(), name="deletion-requests"),
     path(
         "deletion-requests/<uuid:pk>/process/",

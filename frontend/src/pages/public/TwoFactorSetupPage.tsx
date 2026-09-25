@@ -1,16 +1,15 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ShieldCheck, QrCode, Key, Download, AlertCircle } from "lucide-react";
+import { ShieldCheck, QrCode, Download, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { authApi } from "@/api/auth";
 import { normalizeError } from "@/api/client";
-import { useAuthStore } from "@/store/auth";
 import { Separator } from "@/components/ui/input";
 
 const schema = z.object({
@@ -21,7 +20,6 @@ type FormData = z.infer<typeof schema>;
 
 export function TwoFactorSetupPage() {
   const navigate = useNavigate();
-  const setUser = useAuthStore((s) => s.setUser);
   const { toast } = useToast();
   const [step, setStep] = useState<"setup" | "verify" | "complete">("setup");
   const [secret, setSecret] = useState("");
@@ -46,10 +44,17 @@ export function TwoFactorSetupPage() {
     }
   };
 
+  // Fetch the secret + recovery codes as soon as the setup step mounts;
+  // without this the manual key stays empty and the verify step is unreachable.
+  useEffect(() => {
+    void loadSetup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
-      const result = await authApi.disable2fa(data);
+      const result = await authApi.enable2fa(data);
       toast({ title: "2FA enabled", description: result.detail, variant: "success" });
       setStep("complete");
     } catch (error) {
@@ -87,6 +92,16 @@ export function TwoFactorSetupPage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   Google Authenticator, Authy, 1Password, Microsoft Authenticator, etc.
                 </p>
+                {otpauthUri && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => copyToClipboard(otpauthUri, "Setup link")}
+                  >
+                    Copy manual setup link
+                  </Button>
+                )}
               </div>
 
               <div className="space-y-2">

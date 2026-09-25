@@ -10,6 +10,7 @@ const client = axios.create({
 
 const ACCESS_KEY = "safecity.access";
 const REFRESH_KEY = "safecity.refresh";
+const CHALLENGE_KEY = "safecity.challenge";
 
 export const tokenStore = {
   get access(): string | null {
@@ -28,10 +29,35 @@ export const tokenStore = {
   },
 };
 
+/**
+ * Short-lived 2FA challenge token issued by login when the account has 2FA
+ * enabled. It is *not* a session — the backend rejects it everywhere except
+ * the `/auth/token/2fa/` exchange, which must receive it as the bearer token.
+ */
+export const challengeStore = {
+  get token(): string | null {
+    return localStorage.getItem(CHALLENGE_KEY);
+  },
+  set(token: string): void {
+    localStorage.setItem(CHALLENGE_KEY, token);
+  },
+  clear(): void {
+    localStorage.removeItem(CHALLENGE_KEY);
+  },
+};
+
 client.interceptors.request.use((config) => {
-  const token = tokenStore.access;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Never clobber an explicitly-provided Authorization header (the 2FA
+  // exchange sends the challenge token, not the session token).
+  const explicit =
+    typeof config.headers.get === "function"
+      ? config.headers.get("Authorization")
+      : config.headers.Authorization;
+  if (!explicit) {
+    const token = tokenStore.access;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   
   // Add CSRF token if available

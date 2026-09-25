@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { STATUS_LABELS, type IncidentStatus, type Severity } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Filter, X, ChevronDown, ChevronUp, Calendar, MapPin, AlertTriangle } from "lucide-react";
+import { Filter, X, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 
 const MUMBAI_CENTER: [number, number] = [19.076, 72.8777];
 
@@ -89,7 +89,7 @@ export function PublicMapPage() {
   const [category, setCategory] = useState("");
   const [ward, setWard] = useState("");
 
-  const { data, isPending, isError, refetch } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["public-map", status, category, ward, severity, dateFrom, dateTo],
     queryFn: () =>
       incidentsApi.list({

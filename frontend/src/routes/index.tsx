@@ -32,7 +32,7 @@ const UserManagementPage = lazy(() => import("@/pages/authority/UserManagementPa
 const AuditLogsPage = lazy(() => import("@/pages/authority/AuditLogsPage").then((m) => ({ default: m.AuditLogsPage })));
 const AdminOverviewPage = lazy(() => import("@/pages/authority/AdminOverviewPage").then((m) => ({ default: m.AdminOverviewPage })));
 const AnnouncementAdminPage = lazy(() => import("@/pages/authority/AnnouncementAdminPage").then((m) => ({ default: m.AnnouncementAdminPage })));
-const DemoDataAdminPage = lazy(() => import("@/pages/authority/DemoDataAdminPage").then((m) => ({ default: m.DemoDataAdminPage })));
+const NearbyIncidentsPage = lazy(() => import("@/pages/public/NearbyIncidentsPage").then((m) => ({ default: m.NearbyIncidentsPage })));
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -145,12 +145,8 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/admin/demo-data"
-          element={
-            <RequireRole allowed={["city_admin", "superuser"]}>
-              <PageShell><DemoDataAdminPage /></PageShell>
-            </RequireRole>
-          }
+          path="/nearby"
+          element={<PageShell><NearbyIncidentsPage /></PageShell>}
         />
 
         {/* Authority */}

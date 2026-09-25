@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginPage } from "@/pages/public/LoginPage";
-import { ToastProvider } from "@/components/ui/toast";
+import { ToasterComponent } from "@/components/ui/toast";
 import { authApi } from "@/api/auth";
 
 vi.mock("@/api/auth", async (importOriginal) => {
@@ -24,11 +24,10 @@ function renderLogin() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <ToastProvider>
-        <MemoryRouter>
-          <LoginPage />
-        </MemoryRouter>
-      </ToastProvider>
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+      <ToasterComponent />
     </QueryClientProvider>,
   );
 }
