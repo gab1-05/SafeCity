@@ -77,13 +77,23 @@ class TestCsvExport:
         assert response.status_code == status.HTTP_200_OK
         assert _rows(response) == [CSV_HEADER]
 
-    def test_csv_anonymous_sees_only_public_incidents(self, client, incident_factory):
+    def test_csv_anonymous_sees_active_and_recently_resolved(self, client, incident_factory):
+        """Public-map view: new/active reports are visible; resolved ones
+        drop out after RESOLVED_VISIBLE_DAYS."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
         incident_factory(status="verified")
         incident_factory(status="submitted")
+        incident_factory(status="resolved", resolved_at=timezone.now())
+        incident_factory(
+            status="resolved", resolved_at=timezone.now() - timedelta(days=10)
+        )
         response = client.get("/api/v1/incidents/export/csv/")
         assert response.status_code == status.HTTP_200_OK
         rows = _rows(response)
-        assert len(rows) == 2  # only the verified one is public
+        assert len(rows) == 4  # header + verified + submitted + recent resolved
 
 
 class TestPdfExport:

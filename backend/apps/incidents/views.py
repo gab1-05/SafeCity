@@ -47,6 +47,23 @@ from apps.incidents.serializers import (
 from apps.notifications.services import notify
 
 
+# Statuses shown on the public / nearby maps (everything still actionable,
+# including brand-new reports awaiting review).
+PUBLIC_MAP_ACTIVE_STATUSES = [
+    "submitted",
+    "under_review",
+    "verified",
+    "assigned",
+    "in_progress",
+    "awaiting_info",
+    "escalated",
+    "reopened",
+]
+
+# Resolved incidents stay on the map this long, then disappear.
+RESOLVED_VISIBLE_DAYS = 5
+
+
 class PublicByTokenView(APIView):
     """GET /api/v1/incidents/public/<uuid-token>/ — shareable, unguessable link."""
 
@@ -70,6 +87,20 @@ class IncidentCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class IncidentThrottle(UserRateThrottle):
     scope = "incident_create"
+
+
+def public_map_queryset(qs):
+    """Incidents visible on the public / nearby maps.
+
+    All active statuses (new `submitted` reports included) plus `resolved`
+    ones younger than RESOLVED_VISIBLE_DAYS. Anonymous reports are never
+    public.
+    """
+    cutoff = timezone.now() - timedelta(days=RESOLVED_VISIBLE_DAYS)
+    return qs.filter(
+        Q(status__in=PUBLIC_MAP_ACTIVE_STATUSES, is_anonymous=False)
+        | Q(status="resolved", is_anonymous=False, resolved_at__gte=cutoff)
+    )
 
 
 def scoped_incident_queryset(user, params):
@@ -115,8 +146,14 @@ def scoped_incident_queryset(user, params):
         qs = qs.filter(is_emergency=True)
 
     # ── role scoping ───────────────────────────────────
-    if not user.is_authenticated:
-        return qs.filter(status__in=["verified", "resolved"], is_anonymous=False)
+    # Public map visibility: every *active* status (including brand-new
+    # `submitted` / `under_review` reports) plus `resolved` incidents for
+    # RESOLVED_VISIBLE_DAYS, after which they disappear from the map.
+    # Anonymous reports stay hidden. Opt-in via ?scope=public so the map
+    # pages get this view for logged-in users too, without widening the
+    # role scoping used by queues / "my incidents".
+    if not user.is_authenticated or params.get("scope") == "public":
+        return public_map_queryset(qs)
     if user.role in (UserRole.CITY_ADMIN, UserRole.SUPERUSER):
         pass  # all
     elif user.role == UserRole.DEPARTMENT_STAFF:
@@ -140,8 +177,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
     Incidents CRUD + workflow actions.
 
     list/retrieve: role-scoped, filterable, searchable, paginated.
-    Anonymous users may only list public statuses (verified/resolved) — this
-    feeds the public map. All writes require authentication.
+    Anonymous users get the public-map view (all active statuses plus
+    recently resolved) — this feeds the public map. Pass ?scope=public for
+    the same view while authenticated. All writes require authentication.
     create: citizens and admins (staff desk-entry).
     Workflow actions: status, assign, escalate, merge, reopen, confirm.
     """

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/ui/feedback";
-import { authApi, notificationsApi } from "@/api/auth";
+import { authApi, departmentsApi, notificationsApi, roleRequestsApi } from "@/api/auth";
 import client, { normalizeError } from "@/api/client";
 import { useAuthStore } from "@/store/auth";
 import { formatDate } from "@/lib/utils";
@@ -97,6 +97,42 @@ export function ProfilePage() {
       toast({ title: "Session revoked", variant: "success" });
     } catch (error) {
       toast({ title: "Could not revoke session", description: normalizeError(error).detail, variant: "error" });
+    }
+  };
+
+  const { data: departments } = useQuery({
+    queryKey: ["departments"],
+    queryFn: departmentsApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: myRoleRequests, refetch: refetchRoleRequests } = useQuery({
+    queryKey: ["my-role-requests"],
+    queryFn: () => roleRequestsApi.list("all"),
+  });
+
+  const pendingRequest = myRoleRequests?.find((r) => r.status === "pending");
+
+  const submitRoleRequest = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const requested_role = String(form.get("requested_role") || "");
+    const department_id = String(form.get("department_id") || "") || null;
+    const reason = String(form.get("reason") || "");
+    if (!requested_role) return;
+    setBusy(true);
+    try {
+      await roleRequestsApi.create({ requested_role, department_id, reason });
+      toast({
+        title: "Role request submitted",
+        description: "An administrator will review your request.",
+        variant: "success",
+      });
+      refetchRoleRequests();
+    } catch (error) {
+      toast({ title: "Request failed", description: normalizeError(error).detail, variant: "error" });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -205,6 +241,66 @@ export function ProfilePage() {
               <li className="text-sm text-muted-foreground">No active sessions found.</li>
             )}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Role & permissions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Current role: <span className="font-medium text-foreground">{user?.role?.replace("_", " ")}</span>
+            {user?.department && <> · {user.department}</>}
+          </p>
+          {pendingRequest ? (
+            <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+              Pending request: <span className="font-medium">{pendingRequest.requested_role.replace("_", " ")}</span>
+              {" "}— an administrator will review it.
+            </p>
+          ) : (
+            <form onSubmit={submitRoleRequest} className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="requested_role">Request an elevated role</Label>
+                <Select id="requested_role" name="requested_role" defaultValue="">
+                  <option value="" disabled>
+                    Select a role…
+                  </option>
+                  <option value="volunteer">Volunteer — help with verified incidents</option>
+                  <option value="department_staff">Department staff — manage department incidents</option>
+                  <option value="emergency_responder">Emergency responder — handle emergencies</option>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="department_id">Department (for department staff)</Label>
+                <Select id="department_id" name="department_id" defaultValue="">
+                  <option value="">None</option>
+                  {(departments ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reason">Why do you need this role?</Label>
+                <Input id="reason" name="reason" placeholder="Brief justification for the admin" />
+              </div>
+              <Button type="submit" variant="outline" size="sm" disabled={busy}>
+                Submit role request
+              </Button>
+            </form>
+          )}
+          {myRoleRequests && myRoleRequests.length > 0 && (
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {myRoleRequests.slice(0, 5).map((r) => (
+                <li key={r.id}>
+                  {r.requested_role.replace("_", " ")} — {r.status}
+                  {r.reviewed_at ? ` (reviewed ${new Date(r.reviewed_at).toLocaleDateString()})` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 

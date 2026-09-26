@@ -12,9 +12,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { incidentNotificationSchema } from "@/lib/validation";
-import { incidentsApi, referenceDataApi } from "@/api/incidents";
+import { incidentsApi, referenceDataApi, MAP_ACTIVE_STATUSES, isVisibleOnMap } from "@/api/incidents";
 
 const MUMBAI_CENTER: [number, number] = [19.076, 72.8777];
+
+/** Great-circle distance in km (the list API has no geo support, so the
+ * nearby page measures client-side from the device location). */
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   roads: "#f59e0b",
@@ -126,16 +138,16 @@ export function NearbyIncidentsPage() {
     );
   }, []);
 
-  // Fetch nearby incidents
+  // Fetch nearby incidents: all active + new reports, plus recently
+  // resolved (which disappear after RESOLVED_VISIBLE_DAYS). scope=public
+  // gives this view even while logged in (citizens otherwise see only own).
   const { data, isPending, refetch } = useQuery({
     queryKey: ["nearby-incidents", userLocation, radiusKm, status, severity, category],
     queryFn: async () => {
       if (!userLocation) return { results: [] };
       const { data } = await incidentsApi.list({
-        lat: userLocation[0],
-        lng: userLocation[1],
-        radius_km: radiusKm,
-        status: status ? [status] : ["verified", "resolved", "in_progress", "assigned"],
+        status: status ? [status] : [...MAP_ACTIVE_STATUSES, "resolved"],
+        scope: "public",
         page_size: 100,
       });
       return data;
@@ -162,15 +174,24 @@ export function NearbyIncidentsPage() {
 
   const incidents = useMemo((): NearbyIncident[] => {
     const source = data?.results ?? [];
+    if (!userLocation) return [];
     return source
       .filter((incident) => {
+        if (!isVisibleOnMap(incident)) return false;
         const statusMatch = !status || incident.status === status;
         const severityMatch = !severity || incident.severity === severity;
         const categoryMatch = !category || incident.category?.slug === category;
         return statusMatch && severityMatch && categoryMatch;
       })
+      .map((incident) => ({
+        ...incident,
+        distance_km:
+          incident.distance_km ??
+          haversineKm(userLocation[0], userLocation[1], Number(incident.latitude), Number(incident.longitude)),
+      }))
+      .filter((incident) => incident.distance_km <= radiusKm)
       .sort((a, b) => a.distance_km - b.distance_km);
-  }, [data?.results, status, severity, category]);
+  }, [data?.results, userLocation, radiusKm, status, severity, category]);
 
   const { points, byColor } = useMemo(() => {
     const pts: Array<[number, number]> = [];
@@ -265,7 +286,7 @@ export function NearbyIncidentsPage() {
                   className="w-full"
                 >
                   <option value="">All</option>
-                  {(["verified", "in_progress", "assigned", "resolved", "awaiting_info", "reopened"] as IncidentStatus[]).map((s) => (
+                  {([...MAP_ACTIVE_STATUSES, "resolved"] as IncidentStatus[]).map((s) => (
                     <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
                   ))}
                 </Select>

@@ -3,12 +3,26 @@ import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { authApi } from "@/api/auth";
-import { normalizeError } from "@/api/client";
+import { authApi, departmentsApi } from "@/api/auth";
+import { normalizeError, tokenStore } from "@/api/client";
+import { useAuthStore } from "@/store/auth";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import type { UserRole } from "@/types";
+
+/** Roles a new user may request. The account is always created as
+ * `citizen`; anything else becomes a pending request for admin approval.
+ * `city_admin` / `superuser` are never self-requestable. */
+const REQUESTABLE_ROLES = [
+  { value: "citizen", label: "Citizen — report issues (default, instant access)" },
+  { value: "volunteer", label: "Volunteer — help with verified incidents" },
+  { value: "department_staff", label: "Department staff — manage department incidents" },
+  { value: "emergency_responder", label: "Emergency responder — handle emergencies" },
+] as const;
 
 const schema = z
   .object({
@@ -18,6 +32,9 @@ const schema = z
     phone: z.string().optional(),
     password: z.string().min(10, "At least 10 characters"),
     confirm: z.string(),
+    requested_role: z.string().default("citizen"),
+    requested_department_id: z.string().optional(),
+    role_request_reason: z.string().max(2000).optional(),
     accept_terms: z.literal(true, {
       errorMap: () => ({ message: "You must accept the terms to register" }),
     }),
@@ -31,14 +48,78 @@ type FormData = z.infer<typeof schema>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const setUser = useAuthStore((s) => s.setUser);
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [oauthUnconfigured, setOauthUnconfigured] = useState(false);
+
+  const { data: departments } = useQuery({
+    queryKey: ["departments-public"],
+    queryFn: departmentsApi.list,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  const requestedRole = watch("requested_role");
+  const needsApproval = requestedRole && requestedRole !== "citizen";
+
+  const applyGoogleSignup = (result: {
+    access: string;
+    refresh: string;
+    user: { id: string; email: string; role: string; full_name?: string };
+  }) => {
+    tokenStore.set(result.access, result.refresh);
+    setUser({
+      id: result.user.id,
+      email: result.user.email,
+      role: result.user.role as UserRole,
+      full_name: result.user.full_name || result.user.email,
+      department: null,
+    });
+    toast({
+      title: "Account created with Google",
+      description:
+        needsApproval
+          ? "Your role request was submitted for admin approval."
+          : "You can now use SafeCity.",
+      variant: "success",
+    });
+    navigate("/dashboard");
+  };
+
+  const onGoogleCredential = async (idToken: string) => {
+    setSubmitting(true);
+    try {
+      const formValues = watch();
+      const result = await authApi.googleLogin(
+        idToken,
+        needsApproval
+          ? {
+              requested_role: formValues.requested_role,
+              requested_department_id: formValues.requested_department_id || undefined,
+              role_request_reason: formValues.role_request_reason || "",
+            }
+          : undefined,
+      );
+      applyGoogleSignup(result);
+    } catch (error) {
+      const normalized = normalizeError(error);
+      if (normalized.status === 503) setOauthUnconfigured(true);
+      toast({
+        title: "Google sign-up failed",
+        description: normalized.detail,
+        variant: "error",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
@@ -50,10 +131,20 @@ export function RegisterPage() {
         phone: data.phone,
         password: data.password,
         accept_terms: true,
+        ...(data.requested_role !== "citizen"
+          ? {
+              requested_role: data.requested_role,
+              requested_department_id: data.requested_department_id || undefined,
+              role_request_reason: data.role_request_reason || "",
+            }
+          : {}),
       });
       toast({
         title: "Account created",
-        description: "You can now log in with your credentials.",
+        description:
+          data.requested_role !== "citizen"
+            ? "You can log in now. Your role request is pending admin approval."
+            : "You can now log in with your credentials.",
         variant: "success",
       });
       navigate("/login");
@@ -101,6 +192,18 @@ export function RegisterPage() {
           <CardDescription>Report issues and follow their resolution</CardDescription>
         </CardHeader>
         <CardContent>
+          <GoogleSignInButton
+            onCredential={onGoogleCredential}
+            onUnavailable={() => setOauthUnconfigured(true)}
+            onError={(msg) => toast({ title: "Google sign-up failed", description: msg, variant: "error" })}
+          />
+          {!oauthUnconfigured && (
+            <div className="my-4 flex items-center gap-3" aria-hidden>
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="grid grid-cols-2 gap-3">
               {field("first_name", "First name", "text", "given-name")}
@@ -110,6 +213,65 @@ export function RegisterPage() {
             {field("phone", "Phone (optional)", "tel", "tel")}
             {field("password", "Password (min 10 chars)", "password", "new-password")}
             {field("confirm", "Confirm password", "password", "new-password")}
+            <div className="space-y-2">
+              <Label htmlFor="requested_role">I want to join as</Label>
+              <Select
+                id="requested_role"
+                {...register("requested_role")}
+              >
+                {REQUESTABLE_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </Select>
+              {needsApproval ? (
+                <p className="text-xs text-muted-foreground">
+                  Your account is created as citizen immediately. The selected role
+                  needs an administrator's approval.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Citizen accounts get instant access. Admins and superusers can only
+                  be assigned by an existing administrator.
+                </p>
+              )}
+              {errors.requested_role && (
+                <p className="text-sm text-danger" role="alert">
+                  {errors.requested_role.message}
+                </p>
+              )}
+            </div>
+            {needsApproval && (
+              <>
+                {requestedRole === "department_staff" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="requested_department_id">Department</Label>
+                    <Select
+                      id="requested_department_id"
+                      {...register("requested_department_id")}
+                    >
+                      <option value="">Select a department…</option>
+                      {(departments ?? []).map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="role_request_reason">
+                    Why do you need this role? (optional)
+                  </Label>
+                  <Input
+                    id="role_request_reason"
+                    placeholder="e.g. Volunteer with the local response team"
+                    {...register("role_request_reason")}
+                  />
+                </div>
+              </>
+            )}
             <div className="flex items-start gap-2">
               <input
                 id="accept_terms"

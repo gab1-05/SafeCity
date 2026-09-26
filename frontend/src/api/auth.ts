@@ -43,6 +43,10 @@ export interface RegisterPayload {
   password: string;
   accept_terms: boolean;
   prefers_anonymous_reporting?: boolean;
+  /** Optional elevated-role request — account is still created as citizen. */
+  requested_role?: string;
+  requested_department_id?: string;
+  role_request_reason?: string;
 }
 
 export interface TwoFactorSetupResponse {
@@ -80,9 +84,18 @@ export const authApi = {
     tokenStore.set(data.access, data.refresh);
     return data;
   },
-  /** Exchange a Google ID token (from Google Identity Services) for SafeCity JWTs. */
-  googleLogin: async (idToken: string): Promise<{ access: string; refresh: string; user: User }> => {
-    const { data } = await client.post("/auth/oauth/google/", { id_token: idToken });
+  /** Exchange a Google ID token (from Google Identity Services) for SafeCity JWTs.
+   * Same endpoint handles both login and signup: first-time users are
+   * auto-provisioned as citizens. Optional role-request fields apply only
+   * on first signup (citizen account + pending admin approval). */
+  googleLogin: async (
+    idToken: string,
+    roleRequest?: { requested_role?: string; requested_department_id?: string; role_request_reason?: string },
+  ): Promise<{ access: string; refresh: string; user: User }> => {
+    const { data } = await client.post("/auth/oauth/google/", {
+      id_token: idToken,
+      ...roleRequest,
+    });
     tokenStore.set(data.access, data.refresh);
     return data;
   },
@@ -188,5 +201,49 @@ export const announcementsApi = {
   list: async () => {
     const { data } = await publicClient.get("/announcements/");
     return data as Paginated<Announcement>;
+  },
+};
+
+export interface RoleRequest {
+  id: string;
+  user: string;
+  user_email: string;
+  user_name: string;
+  current_role: UserRole;
+  requested_role: UserRole;
+  department: string | null;
+  department_name: string | null;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  reviewed_by: string | null;
+  reviewed_by_email: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export const roleRequestsApi = {
+  /** Admin: pending queue (or ?status=all). Users: own requests. */
+  list: async (status = "pending"): Promise<RoleRequest[]> => {
+    const { data } = await client.get(`/users/role-requests/?status=${status}`);
+    return data.results ?? data;
+  },
+  create: async (payload: {
+    requested_role: string;
+    department_id?: string | null;
+    reason?: string;
+  }): Promise<RoleRequest> => {
+    const { data } = await client.post("/users/role-requests/", payload);
+    return data;
+  },
+  review: async (id: string, decision: "approve" | "reject"): Promise<RoleRequest> => {
+    const { data } = await client.post(`/users/role-requests/${id}/review/`, { decision });
+    return data;
+  },
+};
+
+export const departmentsApi = {
+  list: async (): Promise<Array<{ id: string; name: string; code: string }>> => {
+    const { data } = await client.get("/departments/");
+    return data.results ?? data;
   },
 };

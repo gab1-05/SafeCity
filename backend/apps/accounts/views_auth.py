@@ -155,6 +155,30 @@ class GoogleOAuthView(APIView):
             return Response(
                 {"detail": "id_token is required."}, status=status.HTTP_400_BAD_REQUEST
             )
+        # Optional: first-time Google *signup* can request an elevated role
+        # (same rules as password signup — citizen account + pending request).
+        from apps.accounts.models import Department, RoleRequest
+        from apps.accounts.roles import REQUESTABLE_ROLES
+
+        requested_role = (request.data.get("requested_role") or "").strip() or None
+        if requested_role == "citizen":
+            requested_role = None
+        if requested_role and requested_role not in REQUESTABLE_ROLES:
+            return Response(
+                {"detail": "That role cannot be requested. Contact an administrator."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        requested_department = None
+        if request.data.get("requested_department_id"):
+            from uuid import UUID
+
+            try:
+                requested_department = Department.objects.filter(
+                    pk=UUID(str(request.data["requested_department_id"])), is_active=True
+                ).first()
+            except (ValueError, AttributeError):
+                requested_department = None
+        role_request_reason = str(request.data.get("role_request_reason") or "")[:2000]
         try:
             claims = verify_google_id_token(token)
         except ValueError as exc:
@@ -190,6 +214,20 @@ class GoogleOAuthView(APIView):
             user.email_verified_at = timezone.now()
             user.save(update_fields=["email_verified_at"])
             log_action(actor=user, action="auth.oauth_registered", obj=user, request=request)
+            if requested_role:
+                RoleRequest.objects.create(
+                    user=user,
+                    requested_role=requested_role,
+                    department=requested_department,
+                    reason=role_request_reason,
+                )
+                log_action(
+                    actor=user,
+                    action="user.role_requested",
+                    obj=user,
+                    changes={"requested_role": requested_role, "via": "oauth_signup"},
+                    request=request,
+                )
         elif not user.is_active or user.deleted_at:
             return Response(
                 {"detail": "This account has been deactivated."},

@@ -25,6 +25,36 @@ export interface IncidentFilters {
   page?: number;
   page_size?: number;
   ordering?: string;
+  /** "public" opts into the public-map view (all active statuses + new
+   * reports + recently resolved) even while authenticated. */
+  scope?: string;
+}
+
+/** Active statuses shown on the maps (everything still actionable,
+ * including brand-new reports awaiting review). */
+export const MAP_ACTIVE_STATUSES = [
+  "submitted",
+  "under_review",
+  "verified",
+  "assigned",
+  "in_progress",
+  "awaiting_info",
+  "escalated",
+  "reopened",
+];
+
+/** Resolved incidents stay on the map this long, then disappear. */
+export const RESOLVED_VISIBLE_DAYS = 5;
+
+/** Client-side guard mirroring the backend rule: hide resolved incidents
+ * older than RESOLVED_VISIBLE_DAYS (e.g. data fetched before redeploy). */
+export function isVisibleOnMap(incident: { status: string; resolved_at?: string | null }): boolean {
+  if (incident.status === "resolved") {
+    if (!incident.resolved_at) return false;
+    const ageMs = Date.now() - new Date(incident.resolved_at).getTime();
+    return ageMs <= RESOLVED_VISIBLE_DAYS * 24 * 60 * 60 * 1000;
+  }
+  return MAP_ACTIVE_STATUSES.includes(incident.status);
 }
 
 export function toQuery(filters: IncidentFilters): string {

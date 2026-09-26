@@ -6,12 +6,21 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from apps.accounts.models import ConsentRecord, Department, User, UserRole
+from apps.accounts.models import ConsentRecord, Department, RoleRequest, User, UserRole
+from apps.accounts.roles import REQUESTABLE_ROLES
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
     accept_terms = serializers.BooleanField(write_only=True)
+    # Optional elevated-role request. The account itself is always created
+    # as `citizen`; a non-citizen value creates a pending RoleRequest for
+    # admin approval instead of granting anything immediately.
+    requested_role = serializers.ChoiceField(
+        choices=UserRole.choices, required=False, allow_null=True, default=None
+    )
+    requested_department_id = serializers.UUIDField(required=False, allow_null=True, default=None)
+    role_request_reason = serializers.CharField(required=False, allow_blank=True, default="")
 
     class Meta:
         model = User
@@ -23,6 +32,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             "password",
             "accept_terms",
             "prefers_anonymous_reporting",
+            "requested_role",
+            "requested_department_id",
+            "role_request_reason",
         ]
 
     def validate_email(self, value: str) -> str:
@@ -35,12 +47,24 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You must accept the terms to register.")
         return value
 
+    def validate_requested_role(self, value):
+        if value in (None, "", UserRole.CITIZEN):
+            return None
+        if value not in REQUESTABLE_ROLES:
+            raise serializers.ValidationError(
+                "That role cannot be requested. Contact an administrator."
+            )
+        return value
+
     def validate_password(self, value: str) -> str:
         validate_password(value)
         return value
 
     def create(self, validated_data):
         validated_data.pop("accept_terms")
+        requested_role = validated_data.pop("requested_role", None)
+        requested_department_id = validated_data.pop("requested_department_id", None)
+        role_request_reason = validated_data.pop("role_request_reason", "")
         password = validated_data.pop("password")
         request = self.context.get("request")
         user = User.objects.create_user(**validated_data, password=password)
@@ -50,6 +74,18 @@ class RegisterSerializer(serializers.ModelSerializer):
             version="1.0",
             ip_address=request.META.get("REMOTE_ADDR") if request else None,
         )
+        if requested_role:
+            department = None
+            if requested_department_id:
+                department = Department.objects.filter(
+                    pk=requested_department_id, is_active=True
+                ).first()
+            RoleRequest.objects.create(
+                user=user,
+                requested_role=requested_role,
+                department=department,
+                reason=role_request_reason or "",
+            )
         return user
 
 
@@ -217,3 +253,52 @@ class UserManagementSerializer(serializers.ModelSerializer):
 class UserRoleUpdateSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=UserRole.choices)
     department_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class RoleRequestSerializer(serializers.ModelSerializer):
+    """Read serializer for role requests (admin queue + own requests)."""
+
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+    current_role = serializers.CharField(source="user.role", read_only=True)
+    department_name = serializers.CharField(source="department.name", read_only=True, default=None)
+    reviewed_by_email = serializers.EmailField(source="reviewed_by.email", read_only=True, default=None)
+
+    class Meta:
+        model = RoleRequest
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "user_name",
+            "current_role",
+            "requested_role",
+            "department",
+            "department_name",
+            "reason",
+            "status",
+            "reviewed_by",
+            "reviewed_by_email",
+            "reviewed_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class RoleRequestCreateSerializer(serializers.Serializer):
+    requested_role = serializers.ChoiceField(choices=UserRole.choices)
+    department_id = serializers.UUIDField(required=False, allow_null=True)
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_requested_role(self, value):
+        if value == UserRole.CITIZEN:
+            raise serializers.ValidationError("You already have the citizen role.")
+        if value not in REQUESTABLE_ROLES:
+            raise serializers.ValidationError(
+                "That role cannot be requested. Contact an administrator."
+            )
+        return value
+
+
+class RoleRequestReviewSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=["approve", "reject"])
