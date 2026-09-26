@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { incidentsApi, referenceDataApi } from "@/api/incidents";
+import { incidentsApi, referenceDataApi, MAP_ACTIVE_STATUSES, isVisibleOnMap } from "@/api/incidents";
 import { useQuery } from "@tanstack/react-query";
 import { StatusBadge, SeverityBadge } from "@/components/incident/Badges";
 import { Select } from "@/components/ui/input";
@@ -93,7 +93,8 @@ export function PublicMapPage() {
     queryKey: ["public-map", status, category, ward, severity, dateFrom, dateTo],
     queryFn: () =>
       incidentsApi.list({
-        status: status ? [status] : ["verified", "resolved"],
+        status: status ? [status] : [...MAP_ACTIVE_STATUSES, "resolved"],
+        scope: "public",
         page_size: 200,
       }),
   });
@@ -111,6 +112,7 @@ export function PublicMapPage() {
   const incidents = useMemo(() => {
     const source = data?.results ?? [];
     return source.filter((incident) => {
+      if (!isVisibleOnMap(incident)) return false;
       const categoryMatch = !category || incident.category?.slug === category;
       const wardMatch = !ward || incident.ward_name === wards?.find((w) => w.code === ward)?.name;
       const severityMatch = !severity || incident.severity === severity;
@@ -151,7 +153,8 @@ export function PublicMapPage() {
         <div>
           <h1 className="text-2xl font-bold">Public incident map</h1>
           <p className="text-sm text-muted-foreground">
-            Verified and resolved incidents. Locations are approximate to protect privacy.
+            All active and new incidents. Resolved ones stay visible for 5 days, then disappear.
+            Locations are approximate to protect privacy.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -186,8 +189,8 @@ export function PublicMapPage() {
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full"
               >
-                <option value="">All public</option>
-                {(["verified", "resolved"] as IncidentStatus[]).map((s) => (
+                <option value="">All active + new</option>
+                {([...MAP_ACTIVE_STATUSES, "resolved"] as IncidentStatus[]).map((s) => (
                   <option key={s} value={s}>
                     {STATUS_LABELS[s]}
                   </option>

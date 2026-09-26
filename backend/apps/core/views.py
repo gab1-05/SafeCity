@@ -59,6 +59,7 @@ def readiness(request):
 def meta_config(request):
     """Public, non-sensitive runtime configuration for the SPA."""
     from apps.accounts.oauth import google_client_id
+    from apps.accounts.roles import REQUESTABLE_ROLES, ROLE_PERMISSION_SUMMARY
     from apps.incidents.models import IncidentCategory
 
     return JsonResponse(
@@ -74,6 +75,13 @@ def meta_config(request):
             # Google button in the SPA. Never expose client secrets here.
             "oauth": {
                 "google_client_id": google_client_id() or None,
+            },
+            # Roles a new user may request at signup; the account itself is
+            # always created as citizen and the request needs admin approval.
+            "signup": {
+                "default_role": "citizen",
+                "requestable_roles": REQUESTABLE_ROLES,
+                "role_permissions": ROLE_PERMISSION_SUMMARY,
             },
             "features": {
                 "anonymous_reporting": settings.SAFECITY["ALLOW_ANONYMOUS_REPORTS"],

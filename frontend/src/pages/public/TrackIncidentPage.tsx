@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,21 @@ import { StatusBadge, SeverityBadge } from "@/components/incident/Badges";
 import { incidentsApi } from "@/api/incidents";
 import { normalizeError } from "@/api/client";
 import { formatDate } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 
 export function TrackIncidentPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reference, setReference] = useState("");
   const [submitted, setSubmitted] = useState("");
+
+  // Auto-populate from URL query param on mount
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      setReference(ref);
+      setSubmitted(ref.trim().toUpperCase());
+    }
+  }, [searchParams]);
 
   const { data, isPending, error } = useQuery({
     queryKey: ["track", submitted],
@@ -19,6 +30,13 @@ export function TrackIncidentPage() {
     enabled: submitted.length > 5,
     retry: false,
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const ref = reference.trim().toUpperCase();
+    setSubmitted(ref);
+    setSearchParams({ ref });
+  };
 
   return (
     <div className="container max-w-2xl py-12">
@@ -28,10 +46,7 @@ export function TrackIncidentPage() {
       </p>
       <form
         className="mt-6 flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSubmitted(reference.trim().toUpperCase());
-        }}
+        onSubmit={handleSubmit}
       >
         <div className="flex-1 space-y-2">
           <Label htmlFor="reference" className="sr-only">

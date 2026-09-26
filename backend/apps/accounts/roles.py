@@ -19,6 +19,46 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
     UserRole.SUPERUSER: [],
 }
 
+# Roles a user may *request* at signup (or later from their profile).
+# `citizen` needs no approval; `city_admin`/`superuser` are never
+# requestable — only assignable directly by an existing admin.
+REQUESTABLE_ROLES: list[str] = [
+    UserRole.VOLUNTEER,
+    UserRole.DEPARTMENT_STAFF,
+    UserRole.EMERGENCY_RESPONDER,
+]
+
+# Human-readable permission summary per role, shown in the admin UI.
+# Enforcement lives in apps.accounts.permissions (role field + code-level
+# checks), so changing a user's role *is* changing their permissions.
+ROLE_PERMISSION_SUMMARY: dict[str, list[str]] = {
+    UserRole.CITIZEN: [
+        "Report incidents",
+        "Track own reports",
+        "View public map (all active + recently resolved)",
+    ],
+    UserRole.VOLUNTEER: [
+        "Everything a citizen can do",
+        "View verified / in-progress / resolved incidents",
+    ],
+    UserRole.DEPARTMENT_STAFF: [
+        "View & manage own department's incidents",
+        "View internal notes for own department",
+        "Assignment picker access",
+    ],
+    UserRole.EMERGENCY_RESPONDER: [
+        "View assigned incidents + high/critical severity emergencies",
+        "Update assigned incident status",
+    ],
+    UserRole.CITY_ADMIN: [
+        "View all incidents",
+        "Manage users (roles, activation, unlocks)",
+        "Process deletion & role requests",
+        "Manage announcements & analytics",
+    ],
+    UserRole.SUPERUSER: ["All city-admin powers (full system access)"],
+}
+
 
 def sync_roles() -> dict[str, int]:
     """Create role groups; returns group name → member count. Idempotent."""

@@ -248,6 +248,47 @@ class DeletionRequest(UUIDModel):
     processed_at = models.DateTimeField(null=True, blank=True)
 
 
+class RoleRequest(UUIDModel):
+    """User request for an elevated role (admin-approved workflow).
+
+    New signups always start as `citizen`; requesting e.g. `volunteer` or
+    `department_staff` creates a pending row here. Approving flips
+    `user.role` (and optionally `user.department`); rejecting just closes
+    the request. `city_admin`/`superuser` are never requestable — they can
+    only be assigned directly by an admin via the role endpoint.
+    """
+
+    STATUSES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="role_requests")
+    requested_role = models.CharField(max_length=30, choices=UserRole.choices, db_index=True)
+    department = models.ForeignKey(
+        "accounts.Department",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="role_requests",
+    )
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=15, choices=STATUSES, default="pending", db_index=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="role_requests_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["status"], name="idx_rolereq_status")]
+
+
 class SavedLocation(UUIDModel):
     """Citizen-saved location for faster reporting (home, work…)."""
 

@@ -1,4 +1,4 @@
-# SafeCity Security Audit Report
+              # SafeCity Security Audit Report
 
 ## Executive Summary
 This document outlines the security posture of the SafeCity application, identified vulnerabilities, and implemented mitigations.

@@ -7,11 +7,7 @@ SafeCity is a Smart City Incident Management and Civic Response Platform. Citize
 
 ---
 
-<<<<<<< HEAD
 ## Working Features
-=======
-## Working Features
->>>>>>> 8995cd8224900cd64969b81fb69a3fa0fcbfe00e
 
 ### Frontend (React 18 + TypeScript + Vite + Tailwind)
 - **Modern Design System** — Comprehensive CSS variables for colors, spacing, typography, shadows, radii, transitions
@@ -582,8 +578,4 @@ MIT — see `LICENSE`.
 - **Leaflet** & **React Leaflet** — Mapping
 - **PostgreSQL** + **PostGIS** — Geospatial database
 - **Redis** — Caching & message broker
-<<<<<<< HEAD
 - **Celery** — Distributed task queue
-=======
-- **Celery** — Distributed task queue
->>>>>>> 8995cd8224900cd64969b81fb69a3fa0fcbfe00e

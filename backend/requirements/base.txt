@@ -29,3 +29,10 @@ argon2-cffi>=23.1
 
 # Integrations
 requests>=2.32,<3
+
+# Google OAuth ID-token verification (login + signup via GIS).
+# NOTE: cryptography must stay <42 — service_identity (via daphne/twisted)
+# imports cryptography.hazmat.asn1, removed in 42+.
+google-auth>=2.0,<3
+PyJWT>=2.8,<3
+cryptography>=41,<42
