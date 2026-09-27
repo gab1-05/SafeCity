@@ -1,0 +1,2 @@
+# Load-test only (not app runtime). Install: pip install -r scripts/requirements-load.txt
+locust==2.46.6
