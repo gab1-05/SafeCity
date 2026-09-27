@@ -74,7 +74,7 @@ class AdminOverviewView(APIView):
             # Single annotated pass — previously 2 queries per department.
             for dept in Department.objects.annotate(
                 open_incidents=Count(
-                    "incidents", filter=Q(status__in=open_statuses), distinct=True
+                    "incidents", filter=Q(incidents__status__in=open_statuses), distinct=True
                 ),
                 staff_count=Count(
                     "members",

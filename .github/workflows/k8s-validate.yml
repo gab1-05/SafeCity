@@ -29,9 +29,13 @@ jobs:
           -f infrastructure/helm/safecity/values-kind.yaml
           --set secret.secretKey=ci-only --set secret.postgresPassword=ci-only
           > /tmp/safecity-kind.rendered.yaml
-      - uses: instrumenta/kubeconform-action@v1
-        with:
-          filename: /tmp/safecity-dev.rendered.yaml,/tmp/safecity-kind.rendered.yaml
+      # instrumenta/kubeconform-action is archived: use the pinned binary instead.
+      - run: |
+          curl -sSL -o /tmp/kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          /tmp/kubeconform -strict -ignore-missing-schemas \
+            /tmp/safecity-dev.rendered.yaml /tmp/safecity-kind.rendered.yaml
 
   terraform:
     runs-on: ubuntu-latest
