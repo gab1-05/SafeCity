@@ -62,7 +62,7 @@ CRITICAL_WORDS = {
     "danger",
     "life-threatening",
 }
-HIGH_WORDS = {"injury", "accident", "hazard", "flooding", "flood", "leak", "unsafe"}
+HIGH_WORDS = {"injury", "accident", "hazard", "flooding", "flood", "waterlog", "waterlogging", "leak", "unsafe"}
 
 VALID_SEVERITIES = {"low", "medium", "high", "critical"}
 

@@ -5,13 +5,12 @@ import "leaflet/dist/leaflet.css";
 import { useQuery } from "@tanstack/react-query";
 import { StatusBadge, SeverityBadge } from "@/components/incident/Badges";
 import { Button } from "@/components/ui/button";
-import { STATUS_LABELS, type IncidentStatus, type Severity } from "@/types";
+import { STATUS_LABELS, type Incident, type IncidentStatus, type Severity } from "@/types";
 import { formatDate, cn } from "@/lib/utils";
-import { Filter, X, ChevronDown, ChevronUp, AlertTriangle, MapPin, Circle, Zap, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Filter, X, ChevronDown, ChevronUp, MapPin, Circle, Zap, Users } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
-import { useWebSocket } from "@/hooks/useWebSocket";
-import { incidentNotificationSchema } from "@/lib/validation";
+import { wsService } from "@/services/websocket";
 import { incidentsApi, referenceDataApi, MAP_ACTIVE_STATUSES, isVisibleOnMap } from "@/api/incidents";
 
 const MUMBAI_CENTER: [number, number] = [19.076, 72.8777];
@@ -112,8 +111,8 @@ interface NearbyIncident {
   category: { slug: string; name: string } | null;
   ward_name: string | null;
   address_public: string | null;
-  latitude: string;
-  longitude: string;
+  latitude: number;
+  longitude: number;
   created_at: string;
   resolved_at: string | null;
   is_emergency: boolean;
@@ -144,28 +143,30 @@ export function NearbyIncidentsPage() {
   const { data, isPending, refetch } = useQuery({
     queryKey: ["nearby-incidents", userLocation, radiusKm, status, severity, category],
     queryFn: async () => {
-      if (!userLocation) return { results: [] };
-      const { data } = await incidentsApi.list({
+      if (!userLocation) return { results: [] as Incident[], count: 0, next: null, previous: null };
+      return incidentsApi.list({
         status: status ? [status] : [...MAP_ACTIVE_STATUSES, "resolved"],
         scope: "public",
         page_size: 100,
       });
-      return data;
     },
     enabled: !!userLocation,
     refetchInterval: 60_000,
   });
 
   // WebSocket for live updates
-  const { lastMessage } = useWebSocket("/ws/notifications/", {
-    onMessage: (msg) => {
-      const parsed = incidentNotificationSchema.safeParse(msg);
-      if (parsed.success && parsed.data.type === "notification") {
-        // Trigger refetch for new/updated incidents
-        refetch();
-      }
-    },
-  });
+  useEffect(() => {
+    const unsubscribe = wsService.on("notification", () => {
+      void refetch();
+    });
+    const unsubscribeIncident = wsService.on("incident_update", () => {
+      void refetch();
+    });
+    return () => {
+      unsubscribe();
+      unsubscribeIncident();
+    };
+  }, [refetch]);
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
@@ -176,21 +177,21 @@ export function NearbyIncidentsPage() {
     const source = data?.results ?? [];
     if (!userLocation) return [];
     return source
-      .filter((incident) => {
+      .filter((incident: Incident) => {
         if (!isVisibleOnMap(incident)) return false;
         const statusMatch = !status || incident.status === status;
         const severityMatch = !severity || incident.severity === severity;
         const categoryMatch = !category || incident.category?.slug === category;
         return statusMatch && severityMatch && categoryMatch;
       })
-      .map((incident) => ({
+      .map((incident: Incident) => ({
         ...incident,
         distance_km:
-          incident.distance_km ??
+          (incident as Incident & { distance_km?: number }).distance_km ??
           haversineKm(userLocation[0], userLocation[1], Number(incident.latitude), Number(incident.longitude)),
       }))
-      .filter((incident) => incident.distance_km <= radiusKm)
-      .sort((a, b) => a.distance_km - b.distance_km);
+      .filter((incident: NearbyIncident) => incident.distance_km <= radiusKm)
+      .sort((a: NearbyIncident, b: NearbyIncident) => a.distance_km - b.distance_km);
   }, [data?.results, userLocation, radiusKm, status, severity, category]);
 
   const { points, byColor } = useMemo(() => {
@@ -452,7 +453,7 @@ export function NearbyIncidentsPage() {
             <>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>{incidents.length} incident{incidents.length !== 1 ? "s" : ""} found</span>
-                <Button variant="ghost" size="sm" onClick={refetch} className="gap-1">
+                <Button variant="ghost" size="sm" onClick={() => { void refetch(); }} className="gap-1">
                   <ChevronDown className="h-4 w-4" />
                   Refresh
                 </Button>

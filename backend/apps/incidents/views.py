@@ -46,7 +46,6 @@ from apps.incidents.serializers import (
 )
 from apps.notifications.services import notify
 
-
 # Statuses shown on the public / nearby maps (everything still actionable,
 # including brand-new reports awaiting review).
 PUBLIC_MAP_ACTIVE_STATUSES = [
@@ -549,7 +548,7 @@ class SLAConfigurationViewSet(viewsets.ModelViewSet):
 class EscalationRuleViewSet(viewsets.ModelViewSet):
     """
       Manage automatic escalation rules.
-      Admin-only. Rules are evaluated in priority order when SLA breaches or 
+      Admin-only. Rules are evaluated in priority order when SLA breaches or
       time thresholds are met. Can auto-escalate and notify department heads.
       """
     queryset = EscalationRule.objects.select_related("category").all()
