@@ -4,7 +4,9 @@
 !.env.example
 *.pem
 *.key
-secrets/
+# Root-anchored: a bare "secrets/" pattern would also ignore the
+# infrastructure/terraform/modules/secrets/ Terraform module.
+/secrets/
 
 # ---- Python ----
 __pycache__/
