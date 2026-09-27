@@ -17,6 +17,17 @@ def client():
     return APIClient()
 
 
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    """Response caching (analytics summary, public incident list) uses the
+    shared LocMem cache in tests — clear it so no test reads another's rows."""
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
 @pytest.fixture
 def db(db):  # noqa: F811 — pytest-django db fixture
     return None

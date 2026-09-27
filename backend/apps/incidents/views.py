@@ -9,8 +9,10 @@ reopen / confirm_resolution.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
@@ -61,6 +63,10 @@ PUBLIC_MAP_ACTIVE_STATUSES = [
 
 # Resolved incidents stay on the map this long, then disappear.
 RESOLVED_VISIBLE_DAYS = 5
+
+# Public-map list TTL: the SPA polls every 60s, so 30s keeps every response
+# fresher than one poll interval while absorbing anonymous visitor traffic.
+PUBLIC_LIST_TTL_SECONDS = 30
 
 
 class PublicByTokenView(APIView):
@@ -223,6 +229,26 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return scoped_incident_queryset(self.request.user, self.request.query_params)
+
+    def list(self, request, *args, **kwargs):
+        # Hot path: the public map is hit anonymously by every visitor (and
+        # polled every 60s by the SPA). Cache it briefly keyed by the exact
+        # filter set. Authenticated role-scoped queues are deliberately NOT
+        # cached — a stale queue hides triage work.
+        params = request.query_params
+        if not request.user.is_authenticated or params.get("scope") == "public":
+            fingerprint = hashlib.md5(
+                params.urlencode().encode(), usedforsecurity=False
+            ).hexdigest()
+            cache_key = f"incidents:public-list:v1:{fingerprint}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response(cached)
+            response = super().list(request, *args, **kwargs)
+            if response.status_code == status.HTTP_200_OK:
+                cache.set(cache_key, response.data, PUBLIC_LIST_TTL_SECONDS)
+            return response
+        return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         from apps.incidents.services import create_incident

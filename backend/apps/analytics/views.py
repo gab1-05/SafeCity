@@ -8,6 +8,7 @@ everything. CSV export mirrors the JSON summary.
 import csv
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q
 from django.http import HttpResponse
 from django.utils import timezone
@@ -17,6 +18,11 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import UserRole
 from apps.incidents.models import Incident, IncidentStatus
+
+# Dashboard KPIs are expensive (~15 aggregate queries) and polled every
+# 30–60s by the SPA. A 60s TTL keyed by role scope keeps dashboards snappy
+# without ever showing data older than one poll interval.
+ANALYTICS_SUMMARY_TTL_SECONDS = 60
 
 OPEN_STATUSES = [
     IncidentStatus.SUBMITTED,
@@ -57,6 +63,21 @@ class AnalyticsSummaryView(APIView):
     def get(self, request):
         if request.user.role == UserRole.CITIZEN:
             return Response({"detail": "Not allowed."}, status=403)
+        user = request.user
+        if user.role in (UserRole.CITY_ADMIN, UserRole.SUPERUSER):
+            scope_id = "all"
+        elif user.role == UserRole.DEPARTMENT_STAFF:
+            scope_id = f"dept:{user.department_id}"
+        else:  # emergency responder — assignment-scoped
+            scope_id = f"user:{user.id}"
+        try:
+            days = max(1, min(int(request.query_params.get("days", 30)), 365))
+        except (TypeError, ValueError):
+            days = 30
+        cache_key = f"analytics:summary:v1:{scope_id}:{days}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         qs = _scope_queryset(request.user)
         start, end = _parse_range(request)
         window = qs.filter(created_at__range=(start, end))
@@ -73,9 +94,8 @@ class AnalyticsSummaryView(APIView):
             agg = queryset.aggregate(a=Avg(field))
             return int(agg["a"].total_seconds() // 60) if agg["a"] else None
 
-        return Response(
-            {
-                "total": qs.count(),
+        payload = {
+            "total": qs.count(),
                 "in_window": window.count(),
                 "open": qs.filter(status__in=OPEN_STATUSES).count(),
                 "new_in_window": window.count(),
@@ -110,7 +130,8 @@ class AnalyticsSummaryView(APIView):
                 )
                 or None,
             }
-        )
+        cache.set(cache_key, payload, ANALYTICS_SUMMARY_TTL_SECONDS)
+        return Response(payload)
 
 
 class AnalyticsTrendView(APIView):

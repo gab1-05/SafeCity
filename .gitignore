@@ -41,6 +41,7 @@ infrastructure/terraform/**/*.tfvars
 
 # ---- Docker / misc ----
 *.log
+results/
 .DS_Store
 Thumbs.db
 .idea/
