@@ -74,12 +74,12 @@ module "rds" {
   private_subnet_ids = module.network.private_subnet_ids
   security_group_id  = module.network.rds_security_group_id
 
-  instance_class          = var.db_instance_class
-  allocated_storage_gb    = var.db_allocated_storage_gb
+  instance_class           = var.db_instance_class
+  allocated_storage_gb     = var.db_allocated_storage_gb
   max_allocated_storage_gb = var.db_max_allocated_storage_gb
-  db_name                 = var.db_name
-  db_username             = var.db_username
-  db_password             = module.secrets.database_password
+  db_name                  = var.db_name
+  db_username              = var.db_username
+  db_password              = module.secrets.database_password
 
   # Staging mirrors production's durability settings so a restore or failover
   # is rehearsed here rather than discovered in production.
@@ -116,9 +116,9 @@ module "elasticache" {
 module "iam_base" {
   source = "../../modules/iam"
 
-  project       = var.project
-  environment   = var.environment
-  account_id    = data.aws_caller_identity.current.account_id
+  project          = var.project
+  environment      = var.environment
+  account_id       = data.aws_caller_identity.current.account_id
   create_eks_roles = true
   enable_irsa      = false
 
@@ -174,7 +174,7 @@ module "iam_app" {
   oidc_provider_url = module.eks.oidc_provider_url
   namespace         = var.app_namespace
 
-  media_bucket_arn    = module.s3.bucket_arn
+  media_bucket_arn = module.s3.bucket_arn
   secret_arns = [
     module.secrets.django_secret_arn,
     module.secrets.database_secret_arn,
@@ -191,11 +191,11 @@ module "iam_app" {
 module "alb" {
   source = "../../modules/alb"
 
-  project            = var.project
-  environment        = var.environment
-  vpc_id             = module.network.vpc_id
-  public_subnet_ids  = module.network.public_subnet_ids
-  security_group_id  = module.network.alb_security_group_id
+  project           = var.project
+  environment       = var.environment
+  vpc_id            = module.network.vpc_id
+  public_subnet_ids = module.network.public_subnet_ids
+  security_group_id = module.network.alb_security_group_id
 
   # Staging must serve HTTPS: cookie and HSTS behaviour cannot be validated
   # over plain HTTP, so a certificate is effectively required here.
@@ -216,7 +216,7 @@ module "cloudwatch" {
   environment = var.environment
   region      = data.aws_region.current.name
 
-  log_group_names  = ["backend", "celery-worker", "celery-beat"]
+  log_group_names    = ["backend", "celery-worker", "celery-beat"]
   log_retention_days = var.log_retention_days
   alert_email        = var.alert_email
 
