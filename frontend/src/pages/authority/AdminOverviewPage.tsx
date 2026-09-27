@@ -116,15 +116,14 @@ export function AdminOverviewPage() {
       </div>
 
       {/* KPI row 3 — engagement & security */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isPending || !data ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
+          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
         ) : (
           <>
             <StatCard label="Active this week" value={data.users.active_this_week} tone="success" />
             <StatCard label="2FA enabled" value={data.users.with_2fa} tone="warning" />
             <StatCard label="New users (7d)" value={data.users.new_this_week} />
-            <StatCard label="Locked accounts" value={data.users.locked} tone={data.users.locked > 0 ? "danger" : "success"} />
           </>
         )}
       </div>

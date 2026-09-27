@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, Download, Search, Square, Filter, X, ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import { CheckSquare, Download, Search, Square, Filter, X, ChevronDown, ChevronUp, MoreHorizontal, UserPlus, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +12,150 @@ import { usersApi } from "@/api/auth";
 import { normalizeError } from "@/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/store/auth";
-import { STATUS_LABELS, SEVERITY_LABELS, type Incident, type Severity, type IncidentStatus } from "@/types";
+import { STATUS_LABELS, SEVERITY_LABELS, type Incident, type Severity, type IncidentStatus, type User } from "@/types";
 import { timeAgo } from "@/lib/utils";
+
+function AssignDialog({
+  incident,
+  staff,
+  staffPending,
+  onPick,
+  onAuto,
+  onClose,
+}: {
+  incident: Incident;
+  staff: User[] | undefined;
+  staffPending: boolean;
+  onPick: (id: string) => void;
+  onAuto: () => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [dept, setDept] = useState("");
+
+  const departments = useMemo(() => {
+    const map = new Map<string, string>();
+    (staff ?? []).forEach((m) => {
+      if (m.department) map.set(m.department.id, m.department.name);
+    });
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [staff]);
+
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return (staff ?? []).filter((m) => {
+      if (dept && m.department?.id !== dept) return false;
+      if (!needle) return true;
+      return `${m.first_name} ${m.last_name} ${m.email}`.toLowerCase().includes(needle);
+    });
+  }, [staff, search, dept]);
+
+  const grouped = useMemo(() => {
+    const groups = new Map<string, { name: string; members: User[] }>();
+    filtered.forEach((m) => {
+      const key = m.department?.id ?? "none";
+      const name = m.department?.name ?? "No department";
+      if (!groups.has(key)) groups.set(key, { name, members: [] });
+      groups.get(key)!.members.push(m);
+    });
+    return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [filtered]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Assign ${incident.reference_number}`}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <Card className="w-full max-w-lg">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-semibold">Assign {incident.reference_number}</h2>
+              <p className="mt-1 truncate text-sm text-muted-foreground">{incident.title}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={onAuto} title="Assign by workload">
+              Auto
+            </Button>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_180px]">
+            <Input
+              placeholder="Search name or email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search staff"
+            />
+            <Select
+              value={dept}
+              onChange={(e) => setDept(e.target.value)}
+              aria-label="Filter by department"
+            >
+              <option value="">All departments</option>
+              {departments.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="mt-3 max-h-80 overflow-y-auto rounded-md border">
+            {staffPending ? (
+              <Skeleton className="m-3 h-16" />
+            ) : grouped.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">
+                {staff?.length
+                  ? "No staff match these filters."
+                  : "No staff visible. Ask an administrator to add department members."}
+              </p>
+            ) : (
+              grouped.map((group) => (
+                <div key={group.name}>
+                  <p className="sticky top-0 bg-muted/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+                    {group.name} · {group.members.length}
+                  </p>
+                  {group.members.map((member) => (
+                    <button
+                      key={member.id}
+                      className="flex w-full items-center justify-between gap-3 border-t px-3 py-2.5 text-left text-sm hover:bg-accent"
+                      onClick={() => onPick(member.id)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">
+                          {member.first_name} {member.last_name}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {member.role.replace("_", " ")} · {member.email}
+                        </span>
+                      </span>
+                      {member.is_locked && (
+                        <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
+                          locked
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {filtered.length} of {staff?.length ?? 0} shown
+            </p>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export function IncidentQueuePage() {
   const [searchParams] = useSearchParams();
@@ -41,7 +183,7 @@ export function IncidentQueuePage() {
     queryFn: referenceDataApi.categories,
   });
 
-  const { data: staff } = useQuery({
+  const { data: staff, isPending: staffPending } = useQuery({
     queryKey: ["staff"],
     queryFn: () => usersApi.staff(undefined, ["department_staff", "emergency_responder", "volunteer"]),
     enabled: assigning !== null,
@@ -427,11 +569,11 @@ export function IncidentQueuePage() {
                           )}
                         {canAssign && !incident.assigned_staff_name && (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => autoAssign(incident)}>
-                              Auto
+                            <Button size="sm" variant="outline" onClick={() => autoAssign(incident)} title="Auto-assign by workload">
+                              <Zap className="h-3.5 w-3.5" /> Auto
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setAssigning(incident)}>
-                              Pick…
+                            <Button size="sm" variant="secondary" onClick={() => setAssigning(incident)} title="Pick a staff member">
+                              <UserPlus className="h-3.5 w-3.5" /> Assign
                             </Button>
                           </>
                         )}
@@ -470,41 +612,20 @@ export function IncidentQueuePage() {
         </div>
       )}
 
-      {/* Assign dialog (simple) */}
+      {/* Assign dialog — searchable, grouped by department, scrollable */}
       {assigning && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => e.target === e.currentTarget && setAssigning(null)}
-        >
-          <Card className="w-full max-w-md">
-            <CardContent className="p-6">
-              <h2 className="font-semibold">Assign {assigning.reference_number}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{assigning.title}</p>
-              <div className="mt-4 space-y-2">
-                {(staff ?? []).map((member) => (
-                  <button
-                    key={member.id}
-                    className="flex w-full items-center justify-between rounded-md border p-3 text-left text-sm hover:bg-accent"
-                    onClick={() => manualAssign(member.id)}
-                  >
-                    <span>{member.first_name} {member.last_name}</span>
-                    <span className="text-xs text-muted-foreground">{member.email}</span>
-                  </button>
-                ))}
-                {staff?.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No staff visible. Ask an administrator to add department members.
-                  </p>
-                )}
-              </div>
-              <Button variant="ghost" className="mt-4 w-full" onClick={() => setAssigning(null)}>
-                Cancel
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <AssignDialog
+          incident={assigning}
+          staff={staff}
+          staffPending={staffPending}
+          onPick={manualAssign}
+          onAuto={() => {
+            const target = assigning;
+            setAssigning(null);
+            void autoAssign(target);
+          }}
+          onClose={() => setAssigning(null)}
+        />
       )}
     </div>
   );
