@@ -5,6 +5,7 @@ User management routes: /api/v1/users/...
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.accounts.views_role_requests import RoleRequestListCreateView, RoleRequestReviewView
 from apps.accounts.views_users import (
     DeletionRequestListView,
     DeletionRequestProcessView,
@@ -14,7 +15,6 @@ from apps.accounts.views_users import (
     UserUnlockView,
     UserViewSet,
 )
-from apps.accounts.views_role_requests import RoleRequestListCreateView, RoleRequestReviewView
 
 router = DefaultRouter()
 router.register("", UserViewSet, basename="users")

@@ -43,8 +43,8 @@ This document outlines the security posture of the SafeCity application, identif
 ### 6. Rate Limiting
 - ✅ Client-side rate limiter (new)
 - ✅ Server-side Django REST Framework throttling
-- ✅ Per-endpoint rate limits
 
+ 
 ## Identified Issues & Mitigations
 
 ### HIGH Priority

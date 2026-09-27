@@ -8,7 +8,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import DeletionRequest, User, UserRole
-from apps.audit.services import log_action
 from apps.accounts.permissions import can_manage_users
 from apps.accounts.serializers import (
     UserManagementSerializer,

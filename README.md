@@ -180,7 +180,7 @@ npm run dev
 ### Option 4: Docker Backend + Local Frontend
 ```bash
 # Start only backend services in Docker
-cd SafeCity
+cd  /SafeCity
 docker compose up -d db redis minio backend celery celery-beat
 
 # Frontend runs locally

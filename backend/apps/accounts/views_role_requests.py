@@ -5,7 +5,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.models import Department, RoleRequest, User
+from apps.accounts.models import Department, RoleRequest
 from apps.accounts.permissions import can_manage_users
 from apps.accounts.serializers import (
     RoleRequestCreateSerializer,

@@ -81,7 +81,7 @@ def _incident_lines(incident, *, show_actor_names: bool = False) -> list[Line]:
 
     lines.append((FONT_BODY, BODY_SIZE, ""))
     lines.append((FONT_BOLD, BODY_SIZE, "Description"))
-    lines.extend((FONT_BODY, BODY_SIZE, l) for l in _wrap(incident.description))
+    lines.extend((FONT_BODY, BODY_SIZE, line) for line in _wrap(incident.description))
 
     lines.append((FONT_BODY, BODY_SIZE, ""))
     lines.append((FONT_BOLD, BODY_SIZE, "Timestamps"))
@@ -118,7 +118,7 @@ def _incident_lines(incident, *, show_actor_names: bool = False) -> list[Line]:
         text = f"{entry.created_at:%Y-%m-%d %H:%M}  {entry.to_status}  —  {actor}"
         if entry.note:
             text += f" — {entry.note}"
-        lines.extend((FONT_BODY, BODY_SIZE, l) for l in _wrap(text))
+        lines.extend((FONT_BODY, BODY_SIZE, line) for line in _wrap(text))
 
     return lines
 

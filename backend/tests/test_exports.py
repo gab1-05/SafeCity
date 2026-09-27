@@ -11,8 +11,8 @@ from rest_framework import status
 
 from apps.incidents.models import IncidentStatusHistory
 from apps.incidents.pdf import build_incident_pdf
-from apps.incidents.views_export import IncidentExportCSVView, IncidentExportPDFView
 from apps.incidents.views import IncidentViewSet
+from apps.incidents.views_export import IncidentExportCSVView, IncidentExportPDFView
 
 pytestmark = pytest.mark.django_db
 

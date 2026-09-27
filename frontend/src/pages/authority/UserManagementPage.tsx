@@ -374,7 +374,7 @@ export function UserManagementPage() {
 
       <RoleRequestsPanel requests={roleRequests} busy={busy} onReview={reviewRoleRequest} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as RoleGroup)} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           {Object.entries(ROLE_GROUPS).map(([role, label]) => (
             <TabsTrigger key={role} value={role as RoleGroup}>
