@@ -35,7 +35,8 @@ config:
   djangoSettingsModule: config.settings.prod
   debug: "false"
   # Dev ingress host. Use the ingress-nginx LoadBalancer address or a nip.io
-  # hostname if you do not control DNS.
+  # hostname if you do not control DNS. For kind, kubelet probes reach pods
+  # by pod IP, so the overlay must also allow IPs (see values-kind.yaml).
   allowedHosts: "safecity-dev.local,localhost,127.0.0.1"
   csrfTrustedOrigins: "http://safecity-dev.local"
   corsAllowedOrigins: "http://safecity-dev.local"

@@ -56,11 +56,11 @@ make openapi    # writes docs/api-schema.yaml via drf-spectacular
 
 Live, always-current API docs are served by the running backend:
 
-| Format | URL |
+| Format | URL (with this repo's `.env`: `BACKEND_PORT=18081`) |
 |--------|-----|
-| Swagger UI | http://localhost:8080/api/schema/swagger/ |
-| Redoc | http://localhost:8080/api/schema/redoc/ |
-| Raw OpenAPI 3 | http://localhost:8080/api/schema/ |
+| Swagger UI | http://localhost:18081/api/schema/swagger/ |
+| Redoc | http://localhost:18081/api/schema/redoc/ |
+| Raw OpenAPI 3 | http://localhost:18081/api/schema/ |
 
 > `docs/api-schema.yaml` is a build artifact. If it is absent from a fresh clone,
 > run `make openapi` (or read the live Swagger UI above) rather than trusting a

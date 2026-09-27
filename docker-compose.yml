@@ -76,7 +76,8 @@ services:
     ports:
       # Must match the URL documented in README.md and the .env.example
       # VITE_API_BASE_URL, so the frontend reaches the API without edits.
-      - "${BACKEND_PORT:-8080}:8000"
+      # Default host port is 18081 (overridable via BACKEND_PORT in .env).
+      - "${BACKEND_PORT:-18081}:8000"
     depends_on:
       db:
         condition: service_healthy

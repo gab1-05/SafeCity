@@ -1,11 +1,35 @@
 # SafeCity — SDP Project
 **The Bombay Salesian Society**
 
-SafeCity is a Smart City Incident Management and Civic Response Platform. Citizens report civic incidents (road damage, flooding, fire hazards, broken streetlights, etc.), and authorized authorities, department staff, emergency responders, and volunteers verify, prioritize, assign, monitor, and resolve them — with full transparency, SLA tracking, and auditability.
+SafeCity is a Smart City Incident Management and Civic Response Platform. Citizens report civic incidents (road damage, flooding, fire hazards, broken streetlights, garbage, water leaks, electrical hazards, public-safety threats, etc.), and authorized authorities — department staff, emergency responders, volunteers, city admins and superusers — verify, prioritize, assign, monitor, escalate and resolve them, with full transparency, SLA tracking, auditability and citizen feedback.
+
+**How it works (end to end):** single reporting wizard (category → location → evidence → severity) → automatic routing to the owning department → enforced status workflow (`draft → submitted → under_review → verified → assigned → in_progress → resolved → closed`, plus `rejected / duplicate / awaiting_info / escalated / reopened`) → per-(category, severity) SLA deadlines with breach sweeps → assignment (manual / auto / workload-aware) → resolution with evidence → citizen confirmation + satisfaction rating. Every state change writes an append-only audit row in the same transaction; public views strip PII and jitter coordinates; AI suggestions are advisory only and always require human review.
 
 > ⚠️ SafeCity is an **incident coordination tool for the SDP project**. It is *not* an official emergency service and is *not* an officially integrated government system. In a real emergency always call your local emergency number.
 
 ---
+
+## Functionality by role
+
+### Public (no login)
+- Landing, About, Announcements, Live public map (all active statuses + recently resolved), Nearby incidents (geolocation + radius filter, live WebSocket refresh), Track a report by reference number (`SC-…`) or shareable token link, Login / Register (incl. Google sign-in, elevated-role request) / Forgot password / 2FA verify.
+
+### Citizen (authenticated)
+- Personal dashboard (active / resolved reports, status cards, notifications, feedback history), 7-step report wizard (category, geocoded address + reverse-geocode, duplicate warning, media upload with type/size validation, EXIF stripping, anonymous-report option), My Reports (search/filter), Incident detail (public timeline, comments, media lightbox, PDF/CSV export, confirm resolution + satisfaction rating), Notifications center + channel preferences, Profile (edit, password change, TOTP 2FA setup/disable/recovery codes, active sessions revoke, role-change request, saved locations/filters, consent + account-deletion request).
+
+### Department staff / Emergency responder / Volunteer
+- Authority operations dashboard (KPIs, queues, workload), Incident triage queue (filter by status / severity / category / ward / SLA / emergency, full-text search), verify / reject with reason, assign / auto-assign / transfer, status transitions (enforced matrix), internal vs public comments, escalate with levels, merge duplicates, reopen, similar-incident lookup, high/critical emergency queue for responders, community feed for volunteers, analytics trends + CSV export.
+
+### City admin / Superuser (all authority powers plus)
+- Administration overview (platform health, people, SLA breaches, category/ward breakdowns, department load, governance quick links), User management (list by role, change role + department, activate/deactivate, unlock login lockouts, unblock reporting, approve/reject role requests), Announcements (create / publish / pin, audience targeting), Audit-log viewer (filterable, immutable), SLA configurations + escalation rules, Django admin (`/admin/`), reference data (categories, wards/zones) via seed/shell.
+
+### Backend modules (`backend/apps/`)
+- `accounts` — JWT access (15 min) + rotating refresh (7 d) with blacklist, lockout/throttling, TOTP 2FA, Google OAuth, sessions, profile/privacy, consents, deletion requests, role requests.
+- `incidents` — CRUD, transition-matrix enforcement, SLA computation + breach flags, assignment, escalation, merge/reopen/confirm, media (strict validation), comments (public/internal), timelines, similarity/duplicate check, public track/token views, CSV/PDF export.
+- `notifications` — in-app + email (+SMS/push adapters), WebSocket fan-out (`/ws/notifications/`), per-user preferences.
+- `analytics` — role-scoped KPIs, trends, by-category/ward/department/status/severity, CSV export, daily aggregates (Celery beat).
+- `audit` — append-only log of every state change (actor, action, object, diff, request/IP).
+- `departments` — department directory + workload view; `core` — wards/zones, geocode (Nominatim), SLA/escalation config, health/readiness/meta; `ai` — advisory category/severity/duplicate suggestions (mock default, OpenAI-compatible optional, PII-scrubbed, human decision recorded); `announcements` — city broadcasts.
 
 ## Working Features
 
@@ -32,7 +56,7 @@ SafeCity is a Smart City Incident Management and Civic Response Platform. Citize
 - **Analytics** — Response time metrics, department performance, trend analysis
 - **Audit Logging** — Comprehensive audit trail for all actions
 - **API Documentation** — Swagger/OpenAPI at `/api/schema/swagger/`
-- **Database** — PostgreSQL with PostGIS for geospatial queries
+- **Database** — PostgreSQL with full-text search, JSONB, GIN indexes, partial unique constraints
 - **Async Processing** — Celery + Redis for background tasks, scheduled jobs
 
 ### Infrastructure
@@ -70,13 +94,17 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py seed_demo_data
 ```
 
-### 3. Access Services
+> Ports come from `.env`: `BACKEND_PORT` (default `18081`) maps to the container's `:8000`, `FRONTEND_PORT` (default `5174`) maps to Vite `:5174`. This repo's `.env` uses `18081`/`5174`. If you change them, update `VITE_API_BASE_URL` / `VITE_WS_URL` to match.
+
+### 3. Access Services (with this repo's `.env`: `BACKEND_PORT=18081`, `FRONTEND_PORT=5174`)
 | Service | URL | Notes |
 |---|---|---|
 | **Frontend** | http://localhost:5174 | React dev server with HMR |
 | **Backend API** | http://localhost:18081/api/v1/ | Django REST API |
 | **Swagger UI** | http://localhost:18081/api/schema/swagger/ | Interactive API docs |
-| **Django Admin** | http://localhost:18081/admin/ | Admin panel |
+| **Django Admin** | http://localhost:18081/admin/ | Admin panel (no app models registered — reference data is shell/seed-managed) |
+| **Health** | http://localhost:18081/api/health/ | Liveness (`{"status":"ok"}`) |
+| **Readiness** | http://localhost:18081/api/readiness/ | DB / cache / storage checks |
 | **MinIO Console** | http://localhost:9001 | minioadmin / minioadmin |
 | **PostgreSQL** | localhost:5432 | safecity/safecity |
 | **Redis** | localhost:6379 | No auth (dev) |
@@ -91,6 +119,13 @@ docker compose exec backend python manage.py seed_demo_data
 | Citizen | citizen1@safecity.local | Citizen@12345! |
 
 > **Note:** All department staff accounts use `Staff@12345!` (roads, fire, swm, electricity, water). Citizens `citizen1@` through `citizen5@` use `Citizen@12345!`.
+
+Verify the stack:
+```bash
+docker compose ps                                   # backend should be Up (healthy)
+curl http://localhost:18081/api/health/             # {"status": "ok", ...}
+curl http://localhost:18081/api/readiness/
+```
 
 ---
 
@@ -133,12 +168,12 @@ npm ci
 
 # Configure API URL (if backend on different port)
 # Create .env.local:
-# VITE_API_BASE_URL=http://localhost:8000/api/v1
-# VITE_WS_URL=ws://localhost:8000/ws/
+# VITE_API_BASE_URL=http://localhost:18081/api/v1
+# VITE_WS_URL=ws://localhost:18081/ws/
 
 # Run development server
 npm run dev
-# Frontend at http://localhost:5173
+# Frontend at http://localhost:5174
 ```
 
 ---
@@ -150,19 +185,20 @@ npm run dev
 cd frontend
 
 # Configure proxy in vite.config.ts (already configured)
-# Server runs on 5173, proxies /api/* to http://localhost:8000
+# Server runs on 5174, proxies /api/* to http://localhost:18081
+# (http://backend:8000 inside Docker via DOCKER=true)
 
 npm run dev
-# Access at http://localhost:5173
+# Access at http://localhost:5174
 ```
 
 ### Option 2: Backend Only (API Server)
 ```bash
 cd backend
 source .venv/bin/activate
-python manage.py runserver 0.0.0.0:8000
-# API at http://localhost:8000/api/v1/
-# Admin at http://localhost:8000/admin/
+python manage.py runserver 0.0.0.0:18081
+# API at http://localhost:18081/api/v1/
+# Admin at http://localhost:18081/admin/
 ```
 
 ### Option 3: Frontend + External Backend
@@ -174,13 +210,13 @@ echo "VITE_API_BASE_URL=https://api.yourdomain.com/api/v1" > .env.local
 npm run dev
 
 # Backend runs independently (any host)
-# Ensure CORS_ALLOWED_ORIGINS includes http://localhost:5173
+# Ensure CORS_ALLOWED_ORIGINS includes http://localhost:5174
 ```
 
 ### Option 4: Docker Backend + Local Frontend
 ```bash
 # Start only backend services in Docker
-cd  /SafeCity
+cd SafeCity
 docker compose up -d db redis minio backend celery celery-beat
 
 # Frontend runs locally
@@ -204,36 +240,36 @@ docker compose up -d frontend
 
 ## Development Commands
 
-### Using Make (Root Directory)
+### Using Make (Root Directory — see `Makefile` for the full list)
 ```bash
 make help              # Show all available targets
-make docker-up         # Start full stack
-make docker-down       # Stop all services
-make docker-logs       # Follow logs
-make docker-ps         # Show container status
-make migrate           # Run Django migrations
-make seed              # Seed demo data
+make docker-up         # Start full stack (builds + starts all services)
+make docker-down       # Stop all services (keeps data; use -v to destroy)
+make docker-logs       # Follow backend logs
+make docker-build      # Build all Docker images
+make migrate           # Run Django migrations (in backend container)
+make seed              # Seed demo data (in backend container)
 make test              # Run backend tests (pytest)
-make test-frontend     # Run frontend tests (vitest)
-make lint              # Lint both (ruff + eslint)
-make format            # Format both (black + prettier)
-make openapi           # Regenerate OpenAPI schema
-make superuser         # Create admin user interactively
-make shell             # Django shell
-make dbshell           # PostgreSQL shell
+make test-frontend     # Run frontend tests (vitest --run)
+make test-e2e          # Run Playwright E2E suite (needs seeded stack)
+make lint              # Lint both (ruff check + eslint)
+make format            # Format both (ruff + prettier)
+make coverage          # Backend coverage report
+make openapi           # Regenerate OpenAPI schema to docs/api-schema.yaml
+make superuser         # Create admin user interactively (in backend container)
 ```
 
 ### Frontend Commands
 ```bash
 cd frontend
-npm run dev            # Dev server with HMR
-npm run build          # Production build
+npm run dev            # Dev server with HMR (Vite :5174)
+npm run build          # Production build (tsc -b && vite build)
 npm run preview        # Preview production build
-npm run lint           # ESLint
-npm run format         # Prettier
-npm run typecheck      # TypeScript check
-npm run test           # Vitest unit tests
-npm run test:e2e       # Playwright E2E tests
+npm run lint           # ESLint (max-warnings 0)
+npm run format         # Prettier write
+npm run format:check   # Prettier check
+npm run typecheck      # TypeScript check (tsc -b --noEmit)
+npm run test           # Vitest unit tests (watch); use `npm run test -- --run` for CI
 ```
 
 ### Backend Commands
@@ -353,12 +389,15 @@ VITE_WS_URL=wss://api.yourdomain.com/ws/
 SafeCity/
 ├── backend/                 # Django 5 + DRF
 │   ├── apps/
-│   │   ├── accounts/        # Authentication, profiles, 2FA
-│   │   ├── incidents/       # Incident CRUD, workflow, SLA
-│   │   ├── notifications/   # In-app, email, real-time
-│   │   ├── analytics/       # Metrics, dashboards, exports
-│   │   ├── audit/           # Audit logging
-│   │   └── core/            # Shared utilities
+│   │   ├── accounts/        # Auth (JWT, 2FA, OAuth), users, roles, profiles, deletion/role requests
+│   │   ├── incidents/       # Incident CRUD, workflow matrix, SLA, media, comments, exports
+│   │   ├── departments/     # Department directory + workload (models live in accounts)
+│   │   ├── notifications/   # In-app, email, WebSocket fan-out, preferences
+│   │   ├── announcements/   # City broadcasts (audience, pin/publish)
+│   │   ├── analytics/       # Role-scoped KPIs, trends, aggregates, CSV export
+│   │   ├── audit/           # Immutable audit log
+│   │   ├── ai/              # Advisory suggestions (mock / OpenAI-compatible)
+│   │   └── core/            # Wards/zones, geocode, SLA/escalation config, health/readiness
 │   ├── config/              # Django settings
 │   ├── requirements/        # pip requirements (base/dev/prod)
 │   ├── Dockerfile
@@ -437,7 +476,7 @@ helm install safecity ./safecity -f values-prod.yaml
 ```yaml
 # .github/workflows/ci.yml runs on push/PR:
 # 1. Lint (ruff, eslint, prettier)
-# 2. Type check (tsc, mypy)
+# 2. Type check (tsc)
 # 3. Test (pytest, vitest, playwright)
 # 4. Build Docker images
 # 5. Push to GHCR
@@ -505,14 +544,14 @@ pytest apps/incidents/tests/
 ```bash
 cd frontend
 
-# Unit/Component tests
+# Unit/Component tests (watch mode)
 npm run test
 
-# E2E tests
-npm run test:e2e
+# Single run (CI)
+npm run test -- --run
 
-# E2E with UI
-npm run test:e2e:ui
+# E2E tests (Playwright, needs seeded Docker stack)
+npx playwright test
 ```
 
 ---
@@ -540,7 +579,7 @@ See `SECURITY.md`. Key points:
 7. Open Pull Request
 
 ### Code Style
-- **Backend**: Ruff (lint), Black (format), mypy (types)
+- **Backend**: Ruff (lint + format), pytest
 - **Frontend**: ESLint (lint), Prettier (format), TypeScript strict mode
 
 ---
@@ -576,6 +615,6 @@ MIT — see `LICENSE`.
 - **TanStack Query** — Server state management
 - **Zustand** — Client state management
 - **Leaflet** & **React Leaflet** — Mapping
-- **PostgreSQL** + **PostGIS** — Geospatial database
+- **PostgreSQL** — Relational database with full-text search + JSONB
 - **Redis** — Caching & message broker
 - **Celery** — Distributed task queue

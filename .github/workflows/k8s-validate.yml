@@ -1,0 +1,49 @@
+name: k8s-validate
+
+# Free: helm lint/template + kubeconform + terraform fmt/validate/plan.
+# Nothing is applied — no AWS resources, no bill.
+on:
+  push:
+    paths:
+      - "infrastructure/**"
+  pull_request:
+    paths:
+      - "infrastructure/**"
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: latest
+      - run: helm lint infrastructure/helm/safecity -f infrastructure/helm/safecity/values-dev.yaml
+      - run: >-
+          helm template safecity infrastructure/helm/safecity
+          -f infrastructure/helm/safecity/values-dev.yaml
+          --set secret.secretKey=ci-only --set secret.postgresPassword=ci-only
+          > /tmp/safecity-dev.rendered.yaml
+      - run: >-
+          helm template safecity infrastructure/helm/safecity
+          -f infrastructure/helm/safecity/values-kind.yaml
+          --set secret.secretKey=ci-only --set secret.postgresPassword=ci-only
+          > /tmp/safecity-kind.rendered.yaml
+      - uses: instrumenta/kubeconform-action@v1
+        with:
+          filename: /tmp/safecity-dev.rendered.yaml,/tmp/safecity-kind.rendered.yaml
+
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [dev, staging, prod]
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive ../../../
+      - run: terraform init -backend=false
+      - run: terraform validate
