@@ -1,0 +1,60 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - "backend/**"
+  pull_request:
+    paths:
+      - "backend/**"
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: safecity_test
+          POSTGRES_USER: safecity
+          POSTGRES_PASSWORD: safecity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U safecity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      POSTGRES_DB: safecity_test
+      POSTGRES_USER: safecity
+      POSTGRES_PASSWORD: safecity
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      SECRET_KEY: ci-only-not-a-real-secret-000000000000000000000000
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt
+      - run: python -m ruff check .
+      - run: python manage.py check
+      - run: python -m pytest -q

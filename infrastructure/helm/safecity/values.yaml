@@ -245,6 +245,14 @@ frontend:
     - name: nginx-tmp
       mountPath: /tmp
 
+  # Reverse-proxy upstream for /api, /ws, /static, /media.
+  nginx:
+    # false (default): use the image's baked nginx.conf, which proxies to the
+    # hardcoded upstream "backend" (correct for Docker Compose only).
+    # true: mount a Helm-rendered nginx.conf pointing at the backend Service.
+    # Required whenever no Ingress routes those paths (e.g. kind/minikube).
+    useClusterBackend: false
+
   nodeSelector: {}
   tolerations: []
   affinity: {}

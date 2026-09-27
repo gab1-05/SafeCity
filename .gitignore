@@ -46,3 +46,7 @@ Thumbs.db
 !/.vscode/extensions.json
 minio_data/
 celerybeat-schedule
+
+# ---- Generated presentations ----
+*.pptx
+~$*

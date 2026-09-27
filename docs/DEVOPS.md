@@ -21,10 +21,10 @@ recovery, and the intended CI/CD pipeline.
 | `db` | `postgres:16-alpine` | 5432 | Primary datastore |
 | `redis` | `redis:7-alpine` | 6379 | Cache, Celery broker, Channels layer |
 | `minio` | `minio/minio` | 9000 (API), 9001 (console) | Optional S3-compatible storage |
-| `backend` | `./backend` | `${BACKEND_PORT:-9080}` → 8000 | Django dev server |
+| `backend` | `./backend` | `${BACKEND_PORT:-18081}` → 8000 | Django dev server |
 | `celery` | `./backend` | — | Async worker |
 | `celery-beat` | `./backend` | — | Scheduled sweeps (database scheduler) |
-| `frontend` | `node:20-alpine` | 5173 | Vite dev server |
+| `frontend` | `node:20-alpine` | `${FRONTEND_PORT:-5174}` → 5174 | Vite dev server |
 
 `db` and `redis` declare healthchecks, and `backend` uses
 `depends_on: condition: service_healthy`, so the API does not start against a database
@@ -42,10 +42,11 @@ make docker-logs      # tail backend logs
 make docker-down      # stop
 ```
 
-> **Port consistency.** `docker-compose.yml` and `.env.example` must agree with the URLs
-> quoted in `README.md` (backend on 8080). If the API is unreachable at the documented
-> port, check `BACKEND_PORT` — this value has historically drifted between the compose
-> files and the docs. See [Known limitations](PROJECT-MANAGEMENT.md#2-known-limitations).
+> **Port consistency.** `docker-compose.yml`, `.env.example` and `README.md` agree on
+> `BACKEND_PORT=18081` (container `:8000`) and `FRONTEND_PORT=5174` (Vite `:5174`).
+> If the API is unreachable at the documented port, check `BACKEND_PORT` in `.env`
+> and the actual mapping in `docker compose ps` — this value has historically
+> drifted between the compose files and the docs. See [Known limitations](PROJECT-MANAGEMENT.md#2-known-limitations).
 
 ### Native (no Docker)
 

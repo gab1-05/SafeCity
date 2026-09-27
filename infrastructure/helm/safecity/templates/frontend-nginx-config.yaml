@@ -1,0 +1,74 @@
+{{- if .Values.frontend.nginx.useClusterBackend -}}
+{{- /*
+  Cluster-aware nginx config for the SPA.
+
+  The image's baked nginx.conf proxies to the hardcoded upstream "backend",
+  which only resolves in Docker Compose. In Kubernetes the backend Service is
+  <release>-safecity-backend, so without this override nginx CrashLoops with
+  "host not found in upstream". When enabled, this ConfigMap replaces
+  /etc/nginx/conf.d/default.conf (subPath mount in frontend-deployment.yaml)
+  with the same file pointing at the backend Service. The chart's documented
+  Ingress path (routing /api, /ws, /admin at the Ingress) remains preferred
+  whenever an Ingress controller exists.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "safecity.fullname" . }}-frontend-nginx
+  labels:
+    {{- include "safecity.labels" . | nindent 4 }}
+data:
+  default.conf: |-
+    # SafeCity SPA + API reverse proxy (cluster-aware, rendered by Helm)
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Security headers
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://tile.openstreetmap.org; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://accounts.google.com https://tile.openstreetmap.org https://nominatim.openstreetmap.org http://localhost:18081 ws: wss:; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" always;
+
+        gzip on;
+        gzip_types text/css application/javascript application/json image/svg+xml;
+
+        # API → backend Service (Django/Channels via daphne)
+        location /api/ {
+            proxy_pass http://{{ include "safecity.fullname" . }}-backend:80;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            client_max_body_size 110m;
+        }
+
+        # WebSocket → backend Service
+        location /ws/ {
+            proxy_pass http://{{ include "safecity.fullname" . }}-backend:80;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_read_timeout 300s;
+        }
+
+        # Django admin static & media in dev-like prod compose
+        location /static/ {
+            proxy_pass http://{{ include "safecity.fullname" . }}-backend:80;
+        }
+        location /media/ {
+            proxy_pass http://{{ include "safecity.fullname" . }}-backend:80;
+        }
+
+        # SPA fallback
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+{{- end }}

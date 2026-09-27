@@ -15,8 +15,9 @@ troubleshooting.
 | Kubernetes | Helm 3.x, kubectl, a cluster, plus reachable PostgreSQL and Redis endpoints |
 | Tests (backend) | PostgreSQL reachable at `DB_HOST:DB_PORT` — see [§5](#5-running-tests) |
 
-Ports that must be free: **5173** (frontend), **8080** (backend), 5432 (Postgres),
-6379 (Redis), 9000/9001 (MinIO, optional).
+Ports that must be free (defaults from `.env.example`; overridable via
+`BACKEND_PORT` / `FRONTEND_PORT`): **5174** (frontend), **18081** (backend),
+5432 (Postgres), 6379 (Redis), 9000/9001 (MinIO, optional).
 
 ---
 
@@ -38,13 +39,13 @@ backend, so there is no startup race to work around.
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Frontend | http://localhost:5173 | Vite dev server with hot reload |
-| Backend API | http://localhost:8080/api/v1/ | Django dev server |
-| Swagger UI | http://localhost:8080/api/schema/swagger/ | Interactive API docs |
-| ReDoc | http://localhost:8080/api/schema/redoc/ | Alternative API docs |
-| Django admin | http://localhost:8080/admin/ | Session-authenticated |
-| Health | http://localhost:8080/api/health/ | Liveness |
-| Readiness | http://localhost:8080/api/readiness/ | Checks DB, cache, storage |
+| Frontend | http://localhost:5174 | Vite dev server with hot reload |
+| Backend API | http://localhost:18081/api/v1/ | Django dev server |
+| Swagger UI | http://localhost:18081/api/schema/swagger/ | Interactive API docs |
+| ReDoc | http://localhost:18081/api/schema/redoc/ | Alternative API docs |
+| Django admin | http://localhost:18081/admin/ | Session-authenticated |
+| Health | http://localhost:18081/api/health/ | Liveness |
+| Readiness | http://localhost:18081/api/readiness/ | Checks DB, cache, storage |
 | MinIO console | http://localhost:9001 | `minioadmin` / `minioadmin` (optional; unused by default) |
 
 MinIO is started but **not used** by default: the backend writes media to local disk
@@ -53,16 +54,16 @@ MinIO is started but **not used** by default: the backend writes media to local 
 ### Verify the install
 
 ```bash
-curl -s http://localhost:8080/api/health/
+curl -s http://localhost:18081/api/health/
 # {"status": "ok", "service": "safecity-backend"}
 
-curl -s http://localhost:8080/api/readiness/
+curl -s http://localhost:18081/api/readiness/
 # {"status": "ok", "checks": {"database": "ok", "cache": "ok", "storage": "local"}}
 ```
 
 If readiness returns **503**, read the `checks` map — it names the failing dependency.
 
-Then open http://localhost:5173 and log in with a demo account.
+Then open http://localhost:5174 and log in with a demo account.
 
 ### Daily commands
 
@@ -132,18 +133,20 @@ cp ../.env.example ../.env
 ```bash
 python manage.py migrate
 python manage.py seed_demo_data
-python manage.py runserver 8080
+python manage.py runserver 18081
 ```
 
-Run Django's dev server on port **8080** to match the frontend's
-`VITE_API_BASE_URL` (the default port 8000 would not match).
+Run Django's dev server on port **18081** to match the frontend's
+`VITE_API_BASE_URL` (`http://localhost:18081/api/v1`). The frontend Vite
+dev server proxies `/api`, `/media` and `/ws` there (see
+`frontend/vite.config.ts`), so the default port 8000 would not match.
 
 ### Frontend
 
 ```bash
 cd frontend
 npm ci
-npm run dev                        # http://localhost:5173
+npm run dev                        # http://localhost:5174
 ```
 
 `npm ci` (not `npm install`) installs exactly `package-lock.json`, so you get the
@@ -240,8 +243,8 @@ docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
 | | Dev | Production-like |
 |---|---|---|
 | Settings | `config.settings.dev` | `config.settings.prod` |
-| Frontend | Vite dev server on 5173 | nginx serving built assets on 8088 |
-| Backend | `runserver` on 8080 | Daphne on 9080 |
+| Frontend | Vite dev server on 5174 (`FRONTEND_PORT`) | nginx serving built assets on 8088 |
+| Backend | `runserver` on 18081 (`BACKEND_PORT` → container 8000) | Daphne on 9080 |
 | Secrets | defaults acceptable | `SECRET_KEY` and `POSTGRES_PASSWORD` **required** |
 | DB / Redis ports | published | not published |
 
@@ -271,7 +274,7 @@ The chart does not create PostgreSQL or Redis — you must supply endpoints in t
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| **API unreachable at 8080** | `BACKEND_PORT` overridden in `.env` | Check `BACKEND_PORT`; the documented default is 8080 |
+| **API unreachable at the backend port** | `BACKEND_PORT` overridden in `.env` | Check `BACKEND_PORT` (`docker compose ps` shows the actual host mapping; this repo's `.env` uses `18081`) |
 | **`pytest` hangs with no output** | PostgreSQL unreachable | Start the stack or fix `DB_HOST`/`DB_PORT`; the suite has no SQLite fallback |
 | **Readiness returns 503** | A dependency is down | Read the `checks` map — it names it |
 | **Frontend loads but API calls fail** | `VITE_API_BASE_URL` mismatch, or CORS | Check `VITE_API_BASE_URL` and `CORS_ALLOWED_ORIGINS` |

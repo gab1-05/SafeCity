@@ -48,7 +48,7 @@ docker-build: ## Build all Docker images
 
 docker-up: ## Start the development stack
 	$(COMPOSE) up -d --build
-	@echo "Backend http://localhost:8080/api/v1/ · Swagger /api/schema/swagger/ · Frontend http://localhost:5173"
+	@echo "Backend http://localhost:$${BACKEND_PORT:-18081}/api/v1/ · Swagger /api/schema/swagger/ · Frontend http://localhost:$${FRONTEND_PORT:-5174}"
 
 docker-down: ## Stop the stack
 	$(COMPOSE) down

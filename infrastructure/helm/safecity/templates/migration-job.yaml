@@ -55,11 +55,96 @@ spec:
           image: {{ include "safecity.image" (dict "root" . "image" .Values.backend.image) | quote }}
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           command: ["python", "manage.py", "migrate", "--noinput"]
-          envFrom:
-            - configMapRef:
-                name: {{ include "safecity.fullname" . }}-config
+          # Self-contained env (mirrors configmap.yaml + the two required
+          # secret keys). This Job is a pre-install/pre-upgrade HOOK, so it
+          # runs BEFORE the chart's ConfigMap/Secret exist — it must not
+          # reference them via envFrom/secretKeyRef. Helm prunes hook-used
+          # resources after the release, so hook-owned config would also
+          # vanish under the Deployments.
           env:
-            {{- include "safecity.secretEnv" . | nindent 12 }}
+            - name: DJANGO_SETTINGS_MODULE
+              value: {{ .Values.config.djangoSettingsModule | quote }}
+            - name: DEBUG
+              value: {{ .Values.config.debug | quote }}
+            - name: ALLOWED_HOSTS
+              value: {{ .Values.config.allowedHosts | quote }}
+            - name: CSRF_TRUSTED_ORIGINS
+              value: {{ .Values.config.csrfTrustedOrigins | quote }}
+            - name: CORS_ALLOWED_ORIGINS
+              value: {{ .Values.config.corsAllowedOrigins | quote }}
+            - name: SECRET_KEY
+              {{- if .Values.secret.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  # External Secrets must map these conventional key names.
+                  name: {{ .Values.secret.existingSecret | quote }}
+                  key: secret-key
+              {{- else }}
+              value: {{ required "secret.secretKey is required (or set secret.existingSecret)" .Values.secret.secretKey | quote }}
+              {{- end }}
+            - name: POSTGRES_DB
+              value: {{ .Values.config.postgresDb | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.config.postgresUser | quote }}
+            - name: POSTGRES_PASSWORD
+              {{- if .Values.secret.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.existingSecret | quote }}
+                  key: postgres-password
+              {{- else }}
+              value: {{ required "secret.postgresPassword is required (or set secret.existingSecret)" .Values.secret.postgresPassword | quote }}
+              {{- end }}
+            - name: DB_HOST
+              value: {{ include "safecity.dbHost" . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.config.dbPort | quote }}
+            - name: DB_CONN_MAX_AGE
+              value: {{ .Values.config.dbConnMaxAge | quote }}
+            - name: REDIS_URL
+              value: {{ include "safecity.redisUrl" . | quote }}
+            - name: CELERY_BROKER_URL
+              value: {{ include "safecity.celeryBrokerUrl" . | quote }}
+            - name: CELERY_TASK_ALWAYS_EAGER
+              value: {{ .Values.config.celeryTaskAlwaysEager | quote }}
+            - name: MEDIA_BACKEND
+              value: {{ .Values.config.mediaBackend | quote }}
+            - name: AWS_S3_BUCKET
+              value: {{ .Values.config.awsS3Bucket | quote }}
+            - name: AWS_S3_REGION
+              value: {{ .Values.config.awsS3Region | quote }}
+            - name: S3_ENDPOINT_URL
+              value: {{ .Values.config.s3EndpointUrl | quote }}
+            - name: PUBLIC_URL
+              value: {{ .Values.config.publicUrl | quote }}
+            - name: ALLOW_ANONYMOUS_REPORTS
+              value: {{ .Values.config.allowAnonymousReports | quote }}
+            - name: EMERGENCY_MODE_ENABLED
+              value: {{ .Values.config.emergencyModeEnabled | quote }}
+            - name: PUBLIC_COORD_JITTER_METERS
+              value: {{ .Values.config.publicCoordJitterMeters | quote }}
+            - name: AI_PROVIDER
+              value: {{ .Values.config.aiProvider | quote }}
+            - name: AI_TRANSLATION_ENABLED
+              value: {{ .Values.config.aiTranslationEnabled | quote }}
+            - name: MALWARE_SCAN_PROVIDER
+              value: {{ .Values.config.malwareScanProvider | quote }}
+            - name: CAPTCHA_PROVIDER
+              value: {{ .Values.config.captchaProvider | quote }}
+            - name: RATE_LIMIT_ANON_PER_MIN
+              value: {{ .Values.config.rateLimitAnonPerMin | quote }}
+            - name: RATE_LIMIT_INCIDENTS_PER_HOUR
+              value: {{ .Values.config.rateLimitIncidentsPerHour | quote }}
+            - name: ACCESS_TOKEN_MINUTES
+              value: {{ .Values.config.accessTokenMinutes | quote }}
+            - name: REFRESH_TOKEN_DAYS
+              value: {{ .Values.config.refreshTokenDays | quote }}
+            - name: EMAIL_HOST
+              value: {{ .Values.config.emailHost | quote }}
+            - name: EMAIL_PORT
+              value: {{ .Values.config.emailPort | quote }}
+            - name: DEFAULT_FROM_EMAIL
+              value: {{ .Values.config.defaultFromEmail | quote }}
           resources:
             {{- toYaml .Values.migration.resources | nindent 12 }}
           securityContext:

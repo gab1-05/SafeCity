@@ -110,7 +110,7 @@ spec:
       {{- end }}
 {{- end }}
 
-{{- if .Values.celeryBeat.enabled -}}
+{{- if .Values.celeryBeat.enabled }}
 ---
 {{/* ══════════════════════════════════════════════════════════════
      Celery beat — the scheduler.
