@@ -1,0 +1,39 @@
+You can view the database in several ways:
+
+**1. Django Admin (Web UI)**
+- URL: http://localhost:18081/admin/django/
+- Login with: `admin@safecity.local` / `Admin@12345!`
+- Browse all models, filter, search, edit entries
+
+**2. Django Shell (CLI)**
+```bash
+# Local
+cd backend && python manage.py shell
+
+# Docker
+docker compose exec backend python manage.py shell
+```
+Then query models:
+```python
+from apps.incidents.models import Incident
+Incident.objects.all()[:5]
+Incident.objects.filter(status="verified")
+```
+
+**3. PostgreSQL Direct (CLI)**
+```bash
+# Docker
+docker compose exec db psql -U safecity -d safecity
+# Then: \dt, SELECT * FROM incidents_incident LIMIT 5;
+```
+
+**4. Database GUI Tools** (connect to `localhost:5432`, db=`safecity`, user=`safecity`, pass=`safecity`)
+- **DBeaver** (free, cross-platform)
+- **pgAdmin** (included with PostgreSQL)
+- **DataGrip** (JetBrains)
+- **TablePlus** (macOS/Windows)
+
+**5. API Endpoints** (JSON)
+- `http://localhost:18081/api/v1/incidents/` - all incidents
+- `http://localhost:18081/api/v1/users/` - all users (admin only)
+- `http://localhost:18081/api/v1/categories/` - incident categories
