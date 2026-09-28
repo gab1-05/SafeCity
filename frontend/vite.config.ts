@@ -15,6 +15,9 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    // Allow Cloudflare Quick Tunnel hosts for temporary public demos
+    // (matches any *.trycloudflare.com; dev server only).
+    allowedHosts: [".trycloudflare.com"],
     proxy: {
       "/api": {
         target: apiTarget,

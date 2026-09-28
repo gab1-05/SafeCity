@@ -1,0 +1,16 @@
+# TEMPORARY local demo overlay — Cloudflare Quick Tunnel hosts.
+# NOT for commit: trycloudflare URLs change on every restart.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d backend frontend
+# Delete this file after the demo.
+
+services:
+  backend:
+    environment:
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend,bedrooms-attend-paintball-fireplace.trycloudflare.com
+      CORS_ALLOWED_ORIGINS: http://localhost:5174,http://127.0.0.1:5174,http://localhost:18081,https://bedrooms-attend-paintball-fireplace.trycloudflare.com,https://establishment-polyphonic-messages-diagnostic.trycloudflare.com
+      CSRF_TRUSTED_ORIGINS: http://localhost:5174,https://bedrooms-attend-paintball-fireplace.trycloudflare.com,https://establishment-polyphonic-messages-diagnostic.trycloudflare.com
+
+  frontend:
+    environment:
+      VITE_API_BASE_URL: https://bedrooms-attend-paintball-fireplace.trycloudflare.com/api/v1
+      VITE_WS_URL: wss://bedrooms-attend-paintball-fireplace.trycloudflare.com/ws/
