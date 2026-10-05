@@ -67,8 +67,12 @@ backend:
     limits:
       cpu: 500m
       memory: 512Mi
+  # HPA demo on kind (requires metrics-server): scales 1→3 on CPU.
   autoscaling:
-    enabled: false
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
   podDisruptionBudget:
     enabled: false
 

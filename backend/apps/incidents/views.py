@@ -396,7 +396,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         """Public timeline for everyone with read access; internal events flagged."""
         incident = self.get_object()
         show_internal = can_view_internal_notes(request.user, incident)
-        history = incident.status_history.all()
+        history = incident.status_history.select_related("actor").all()
         if not show_internal:
             history = history.filter(is_public=True)
         return Response(
@@ -422,7 +422,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident = self.get_object()
         show_internal = can_view_internal_notes(request.user, incident)
         if request.method == "GET":
-            qs = incident.comments.filter(moderation_status="visible")
+            qs = incident.comments.select_related("author", "media").filter(
+                moderation_status="visible"
+            )
             if not show_internal:
                 qs = qs.filter(is_internal=False)
             return Response(

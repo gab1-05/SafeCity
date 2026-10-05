@@ -48,6 +48,64 @@ make docker-down      # stop
 > and the actual mapping in `docker compose ps` — this value has historically
 > drifted between the compose files and the docs. See [Known limitations](PROJECT-MANAGEMENT.md#2-known-limitations).
 
+### Kind demo runbook (free local Kubernetes, $0)
+
+```bash
+kind create cluster --name safecity
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install pg bitnami/postgresql \
+  --set auth.database=safecity,auth.username=safecity,auth.password=safecity
+helm install redis bitnami/redis --set auth.enabled=false
+docker build -t safecity-backend:1.0.0 ./backend
+docker build -t safecity-frontend:1.0.0 ./frontend
+kind load docker-image safecity-backend:1.0.0 safecity-frontend:1.0.0 --name safecity
+helm upgrade --install safecity infrastructure/helm/safecity \
+  -f infrastructure/helm/safecity/values-kind.yaml -n safecity-dev --create-namespace \
+  --set secret.secretKey=dev-only-not-a-real-secret \
+  --set secret.postgresPassword=safecity
+# Migration runs as a Helm hook; then seed (idempotent, safe to re-run —
+# always do this before a demo so no dashboard is ever empty):
+kubectl exec -n safecity-dev deployment/safecity-backend -- python manage.py seed_demo_data
+# HPA demo needs metrics-server once per cluster:
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl patch deployment metrics-server -n kube-system --type=json \
+  -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl get hpa -n safecity-dev   # scales backend 1→3 on CPU
+```
+
+Teardown: `kind delete cluster --name safecity`. Bitnami charts are in
+maintenance mode — fine for a demo, not a production basis.
+
+### Connection pooling (deferred — deliberate)
+
+PgBouncer was trialled as an opt-in Compose overlay and **reverted**: this
+pgbouncer version will not complete SCRAM end-to-end from a static
+`userlist.txt` verifier ("did not provide SCRAM keys" on the server leg),
+while `trust` client-auth is not committable. The measurements since then
+show why deferral is correct: the single dev backend saturates on CPU/memory
+(OOMKilled at 512Mi under 40 users) long before Postgres connections become
+the ceiling — pooling solves a multi-pod problem we do not have yet.
+
+When replicas scale (prod HPA), the unblocked path is `auth_user` +
+`auth_query` against live `pg_shadow` (never a static file):
+
+```sql
+CREATE USER pgbouncer_auth WITH PASSWORD '<strong, unique per env>';
+GRANT CONNECT ON DATABASE safecity TO pgbouncer_auth;
+CREATE SCHEMA IF NOT EXISTS pgbouncer;
+GRANT USAGE ON SCHEMA pgbouncer TO pgbouncer_auth;
+CREATE OR REPLACE FUNCTION pgbouncer.get_auth(uname TEXT)
+RETURNS TABLE (username TEXT, password TEXT) AS
+'SELECT usename::TEXT, passwd::TEXT FROM pg_shadow WHERE usename = $1'
+LANGUAGE sql SECURITY DEFINER;
+GRANT EXECUTE ON FUNCTION pgbouncer.get_auth(TEXT) TO pgbouncer_auth;
+```
+
+Pooler side: `auth_user = pgbouncer_auth` + `auth_query = SELECT username,
+password FROM pgbouncer.get_auth($1)`, `pool_mode = transaction`,
+`ignore_startup_parameters = extra_float_digits` (psycopg sends it; without
+this every connection is dropped).
+
 ### Native (no Docker)
 
 ```bash

@@ -8,15 +8,27 @@ read-only over the API becomes editable here (L7).
 
 from django.contrib import admin
 
-from apps.accounts.models import Department, User
+from apps.accounts.models import (
+    ConsentRecord,
+    DeletionRequest,
+    Department,
+    RoleRequest,
+    User,
+)
+from apps.ai.models import AIRecommendation
+from apps.analytics.models import DailyIncidentAggregate
 from apps.announcements.models import Announcement
-from apps.core.models import SLAConfiguration, Ward, Zone
+from apps.audit.models import AuditLog
+from apps.core.models import EscalationRule, IntegrationConfiguration, SLAConfiguration, Ward, Zone
 from apps.incidents.models import (
     Incident,
     IncidentCategory,
     IncidentComment,
+    IncidentFeedback,
+    IncidentMedia,
     IncidentStatusHistory,
 )
+from apps.notifications.models import Notification, NotificationPreference
 
 admin.site.register(
     [
@@ -24,12 +36,42 @@ admin.site.register(
         Ward,
         Zone,
         SLAConfiguration,
+        EscalationRule,
+        IntegrationConfiguration,
         IncidentCategory,
+        IncidentMedia,
         IncidentComment,
+        IncidentFeedback,
         IncidentStatusHistory,
         Announcement,
+        Notification,
+        NotificationPreference,
+        DailyIncidentAggregate,
+        AIRecommendation,
+        RoleRequest,
+        DeletionRequest,
+        ConsentRecord,
     ]
 )
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    """Append-only trail: visible but never editable or deletable."""
+
+    list_display = ("action", "actor", "object_type", "object_id", "created_at")
+    list_filter = ("action",)
+    search_fields = ("action", "object_id")
+    ordering = ("-created_at",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(User)
