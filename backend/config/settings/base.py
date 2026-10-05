@@ -25,6 +25,7 @@ env = environ.Env(
     ALLOW_ANONYMOUS_REPORTS=(bool, True),
     EMERGENCY_MODE_ENABLED=(bool, True),
     PUBLIC_COORD_JITTER_METERS=(int, 150),
+    AUDIT_RETENTION_DAYS=(int, 365),
     MEDIA_BACKEND=(str, "local"),
     PUBLIC_URL=(str, "http://localhost:5173"),
 )
@@ -263,6 +264,7 @@ SAFECITY = {
     "MALWARE_SCAN_PROVIDER": env("MALWARE_SCAN_PROVIDER", default="mock"),
     "CAPTCHA_PROVIDER": env("CAPTCHA_PROVIDER", default="mock"),
     "GOOGLE_CLIENT_ID": env("GOOGLE_CLIENT_ID", default=""),  # empty = OAuth disabled
+    "AUDIT_RETENTION_DAYS": env("AUDIT_RETENTION_DAYS"),  # 0 disables the purge
 }
 
 # Upload limits

@@ -52,6 +52,14 @@ class TestPublicMapVisibility:
         response = client.get("/api/v1/incidents/")
         assert str(anon.id) not in _ids(response)
 
+    def test_page_size_clamped_to_max(self, client, incident_factory):
+        for _ in range(105):
+            incident_factory(status="submitted")
+        response = client.get("/api/v1/incidents/?page_size=1000")
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 100
+        assert response.data["count"] == 105
+
     def test_citizen_gets_public_view_with_scope_param(
         self, client, citizen, incident_factory
     ):

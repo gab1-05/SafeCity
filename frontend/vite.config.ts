@@ -47,7 +47,6 @@ export default defineConfig({
           forms: ["react-hook-form", "@hookform/resolvers", "zod"],
           state: ["zustand"],
           icons: ["lucide-react"],
-          motion: ["framer-motion"],
         },
       },
     },

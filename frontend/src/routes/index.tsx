@@ -5,7 +5,6 @@ import type { UserRole } from "@/types";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { AppLayout } from "@/layouts/AppLayout";
 import { Skeleton } from "@/components/ui/feedback";
-import { AnimatePresence, motion } from "framer-motion";
 
 const LandingPage = lazy(() => import("@/pages/public/LandingPage").then((m) => ({ default: m.LandingPage })));
 const AboutPage = lazy(() => import("@/pages/public/AboutPage").then((m) => ({ default: m.AboutPage })));
@@ -34,16 +33,10 @@ const AdminOverviewPage = lazy(() => import("@/pages/authority/AdminOverviewPage
 const AnnouncementAdminPage = lazy(() => import("@/pages/authority/AnnouncementAdminPage").then((m) => ({ default: m.AnnouncementAdminPage })));
 const NearbyIncidentsPage = lazy(() => import("@/pages/public/NearbyIncidentsPage").then((m) => ({ default: m.NearbyIncidentsPage })));
 
-const pageVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
-  transition: { duration: 0.25, ease: "easeOut" },
-};
-
 function PageShell({ children }: { children: React.ReactNode }) {
   useTransition();
-  
+  const pathname = useLocation().pathname;
+
   return (
     <Suspense
       fallback={
@@ -57,17 +50,10 @@ function PageShell({ children }: { children: React.ReactNode }) {
         </div>
       }
     >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={useLocation().pathname}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={pageVariants}
-        >
-          {children}
-        </motion.div>
-      </AnimatePresence>
+      {/* CSS page-enter replaces framer-motion (~130KB saved off first paint). */}
+      <div key={pathname} className="animate-page-enter">
+        {children}
+      </div>
     </Suspense>
   );
 }

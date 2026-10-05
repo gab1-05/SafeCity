@@ -2,6 +2,7 @@ import { Link, Outlet } from "react-router-dom";
 import { MapPin, Monitor, Moon, ShieldCheck, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth";
+import { SystemStatus } from "@/components/SystemStatus";
 
 function ThemeToggle() {
   const { theme, setTheme } = useAuthStore();
@@ -97,9 +98,10 @@ export function PublicLayout() {
             <Link to="/announcements" className="hover:text-primary transition-colors">Announcements</Link>
             <Link to="/track" className="hover:text-primary transition-colors">Track Report</Link>
           </nav>
-          <p className="flex items-center gap-1">
+          <p className="flex items-center gap-3">
             <MapPin className="h-4 w-4" aria-hidden />
             Maps © OpenStreetMap contributors
+            <SystemStatus />
           </p>
         </div>
       </footer>
