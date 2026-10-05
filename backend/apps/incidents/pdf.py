@@ -107,7 +107,9 @@ def _incident_lines(incident, *, show_actor_names: bool = False) -> list[Line]:
 
     lines.append((FONT_BODY, BODY_SIZE, ""))
     lines.append((FONT_BOLD, BODY_SIZE, "Timeline"))
-    timeline = incident.status_history.filter(is_public=True).order_by("created_at")
+    timeline = (
+        incident.status_history.select_related("actor").filter(is_public=True).order_by("created_at")
+    )
     if not timeline:
         lines.append((FONT_BODY, BODY_SIZE, "No public timeline entries."))
     for entry in timeline:
