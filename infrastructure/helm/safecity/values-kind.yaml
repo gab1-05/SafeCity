@@ -62,12 +62,14 @@ backend:
       value: "false"
   resources:
     requests:
-      cpu: 50m
-      memory: 256Mi
+      cpu: 100m
+      memory: 384Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 1Gi
   # HPA demo on kind (requires metrics-server): scales 1→3 on CPU.
+  # Memory raised to 1Gi after the 512Mi pod OOMKilled at 40 users —
+  # per-pod memory, not Postgres connections, is the first ceiling.
   autoscaling:
     enabled: true
     minReplicas: 1

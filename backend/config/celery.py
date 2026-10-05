@@ -26,4 +26,8 @@ app.conf.beat_schedule = {
         "task": "apps.analytics.tasks.aggregate_daily",
         "schedule": crontab(hour=0, minute=30),
     },
+    "audit-retention-sweep": {
+        "task": "apps.audit.tasks.purge_old_logs",
+        "schedule": crontab(hour=1, minute=0, day_of_week="sunday"),
+    },
 }

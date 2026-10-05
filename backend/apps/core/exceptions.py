@@ -49,4 +49,13 @@ def safecity_exception_handler(exc, context):
         code = "error"
 
     response.data = {"detail": str(detail), "code": str(code), "errors": errors}
+
+    # Help clients back off gracefully: DRF attaches the retry delay to
+    # Throttled exceptions. Surface it as standard headers.
+    if isinstance(exc, exceptions.Throttled):
+        wait = getattr(exc, "wait", None)
+        if wait is not None:
+            response["Retry-After"] = "%d" % wait
+        response["X-RateLimit-Remaining"] = "0"
+
     return response

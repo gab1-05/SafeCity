@@ -28,6 +28,13 @@ SEED_LAT, SEED_LNG = 19.0760, 72.8777  # Mumbai city center (illustrative)
 class Command(BaseCommand):
     help = "Seed demo data for local development (fake credentials only)."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--minimal",
+            action="store_true",
+            help="Seed reference data + users only (fast CI path); skips incidents and announcements.",
+        )
+
     def handle(self, *args, **options):
         self.stdout.write("Seeding SafeCity demo data…")
         self._departments()
@@ -35,6 +42,9 @@ class Command(BaseCommand):
         self._zones_and_wards()
         self._categories()
         self._sla_rules()
+        if options["minimal"]:
+            self.stdout.write(self.style.SUCCESS("Minimal seed done (reference data + users)."))
+            return
         self._incidents()
         self._announcements()
         self.stdout.write(self.style.SUCCESS("Demo data seeded."))

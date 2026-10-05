@@ -363,6 +363,9 @@
   .animate-scale-in {
     animation: scaleIn var(--transition-base) ease-out;
   }
+  .animate-page-enter {
+    animation: pageEnter var(--transition-slow) ease-out;
+  }
 
   /* Gradient text */
   .gradient-text {
