@@ -5,7 +5,7 @@
 
 pipeline {
   agent any
-  options { timestamps(); disableConcurrentBuilds() }
+  options { disableConcurrentBuilds() }
   stages {
     stage('Checkout') { steps { checkout scm } }
     stage('Backend lint') {
