@@ -5,5 +5,5 @@ pytest-django>=4.8
 pytest-cov>=5.0
 factory-boy>=3.3
 freezegun>=1.5
-ruff>=0.5
+ruff>=0.16.10
 drf-spectacular[sidecar]>=0.27
