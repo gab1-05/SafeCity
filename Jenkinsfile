@@ -37,8 +37,10 @@ pipeline {
     }
     stage('Trivy scan') {
       steps {
-        sh 'trivy image --severity CRITICAL,HIGH --exit-code 1 safecity-backend:local'
-        sh 'trivy image --severity CRITICAL,HIGH --exit-code 1 safecity-frontend:local'
+        // --ignore-unfixed: fail only on CVEs with a released fix.
+        // Unfixed-upstream OS findings are noise no rebuild can clear.
+        sh 'trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 safecity-backend:local'
+        sh 'trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 safecity-frontend:local'
       }
     }
     stage('Helm validate') {
