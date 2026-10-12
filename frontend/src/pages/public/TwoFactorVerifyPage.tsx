@@ -48,7 +48,11 @@ export function TwoFactorVerifyPage() {
       toast({ title: "Welcome back", variant: "success" });
       navigate("/dashboard");
     } catch (error) {
-      toast({ title: "Verification failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Verification failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -79,7 +83,11 @@ export function TwoFactorVerifyPage() {
                 {...register("token")}
                 autoFocus
               />
-              {errors.token && <p className="text-sm text-danger" role="alert">{errors.token.message}</p>}
+              {errors.token && (
+                <p className="text-sm text-danger" role="alert">
+                  {errors.token.message}
+                </p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={submitting}>

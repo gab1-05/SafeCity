@@ -90,20 +90,29 @@ class LoginThrottledView(TokenObtainPairView):
         try:
             response = super().post(request, *args, **kwargs)
         except Exception:
-            user = User.objects.filter(email__iexact=email).first()
-            if user:
-                user.failed_login_count += 1
-                if user.failed_login_count >= MAX_FAILED_LOGINS:
-                    user.locked_until = _tz.now() + _timedelta(minutes=LOCKOUT_MINUTES)
-                    user.failed_login_count = 0
-                    notify(
-                        user=user,
-                        verb="security_lockout",
-                        title="Account locked temporarily",
-                        body=f"Too many failed logins. Try again in {LOCKOUT_MINUTES} minutes.",
-                    )
-                    log_action(actor=user, action="auth.lockout", obj=user, request=request)
-                user.save(update_fields=["failed_login_count", "locked_until"])
+            from django.db import transaction
+
+            with transaction.atomic():
+                locked_user = (
+                    User.objects.select_for_update().filter(email__iexact=email).first()
+                )
+                if locked_user:
+                    locked_user.failed_login_count += 1
+                    if locked_user.failed_login_count >= MAX_FAILED_LOGINS:
+                        locked_user.locked_until = _tz.now() + _timedelta(
+                            minutes=LOCKOUT_MINUTES
+                        )
+                        locked_user.failed_login_count = 0
+                        notify(
+                            user=locked_user,
+                            verb="security_lockout",
+                            title="Account locked temporarily",
+                            body=f"Too many failed logins. Try again in {LOCKOUT_MINUTES} minutes.",
+                        )
+                        log_action(
+                            actor=locked_user, action="auth.lockout", obj=locked_user, request=request
+                        )
+                    locked_user.save(update_fields=["failed_login_count", "locked_until"])
             log_action(
                 actor=None, action="auth.login_failed", changes={"email": email}, request=request
             )
@@ -238,6 +247,21 @@ class GoogleOAuthView(APIView):
                 user.email_verified_at = timezone.now()
                 user.save(update_fields=["email_verified_at"])
 
+        if not user.is_active or user.deleted_at:
+            return Response(
+                {"detail": "This account has been deactivated."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if user.locked_until and user.locked_until > timezone.now():
+            remaining = int((user.locked_until - timezone.now()).total_seconds() // 60) + 1
+            return Response(
+                {
+                    "detail": f"Account temporarily locked after too many failed logins. Try again in {remaining} minute(s).",
+                    "code": "account_locked",
+                },
+                status=status.HTTP_423_LOCKED,
+            )
+
         user.failed_login_count = 0
         user.locked_until = None
         user.save(update_fields=["failed_login_count", "locked_until"])
@@ -352,6 +376,13 @@ class PasswordResetConfirmView(APIView):
         user.failed_login_count = 0
         user.locked_until = None
         user.save(update_fields=["password", "failed_login_count", "locked_until"])
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
+
+        for outstanding in OutstandingToken.objects.filter(user=user):
+            BlacklistedToken.objects.get_or_create(token=outstanding)
         log_action(actor=user, action="auth.password_reset", obj=user, request=request)
         return Response({"detail": "Password updated. You can now log in."})
 
@@ -366,6 +397,13 @@ class ChangePasswordView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save(update_fields=["password"])
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
+
+        for outstanding in OutstandingToken.objects.filter(user=request.user):
+            BlacklistedToken.objects.get_or_create(token=outstanding)
         log_action(
             actor=request.user, action="auth.password_changed", obj=request.user, request=request
         )
@@ -378,16 +416,23 @@ class SessionListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
 
         tokens = OutstandingToken.objects.filter(user=request.user).order_by("-created_at")
-        blacklisted = set(request.user.blacklistedtoken_set.values_list("token_id", flat=True))
+        blacklisted = set(
+            BlacklistedToken.objects.filter(token__user=request.user).values_list(
+                "token_id", flat=True
+            )
+        )
         data = [
             {
                 "id": str(t.id),
                 "created_at": t.created_at,
                 "expires_at": t.expires_at,
-                "active": str(t.id) not in blacklisted,
+                "active": t.id not in blacklisted,
             }
             for t in tokens[:50]
         ]

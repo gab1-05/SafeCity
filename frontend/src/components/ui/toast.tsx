@@ -3,13 +3,7 @@ import { toast as sonnerToast, Toaster, type ExternalToast } from "sonner";
 export { Toaster };
 export { sonnerToast as sonner };
 
-export type ToastVariant =
-  | "default"
-  | "success"
-  | "error"
-  | "warning"
-  | "info"
-  | "loading";
+export type ToastVariant = "default" | "success" | "error" | "warning" | "info" | "loading";
 
 /** Structured payload used across the app: `toast({ title, description, variant })`. */
 export type ToastInput =

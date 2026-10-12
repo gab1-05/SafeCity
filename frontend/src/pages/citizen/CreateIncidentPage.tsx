@@ -86,6 +86,7 @@ export function CreateIncidentPage() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const duplicatesCheckedRef = useRef(false);
+  const lastDuplicateCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const [form, setForm] = useState<FormState>({
     category_id: "",
@@ -162,26 +163,32 @@ export function CreateIncidentPage() {
     }, 300);
   }, []);
 
-  const selectAddress = useCallback((result: GeocodeResult) => {
-    set("latitude", result.lat);
-    set("longitude", result.lon);
-    set("address_public", result.display_name);
-    setAddressSearch(result.display_name);
-    setAddressResults([]);
-  }, [set]);
+  const selectAddress = useCallback(
+    (result: GeocodeResult) => {
+      set("latitude", result.lat);
+      set("longitude", result.lon);
+      set("address_public", result.display_name);
+      setAddressSearch(result.display_name);
+      setAddressResults([]);
+    },
+    [set],
+  );
 
-  // Duplicate check when location + category are both set (once per session)
+  // Duplicate check when location + category are both set. Re-runs when the
+  // pin moves (stale "checked once" flags previously hid new duplicates).
   useEffect(() => {
     const run = async () => {
-      if (
-        duplicatesCheckedRef.current ||
-        !form.latitude ||
-        !form.longitude ||
-        !form.category_id
-      ) {
+      if (!form.latitude || !form.longitude || !form.category_id) {
+        return;
+      }
+      const moved =
+        lastDuplicateCoordsRef.current?.lat !== form.latitude ||
+        lastDuplicateCoordsRef.current?.lng !== form.longitude;
+      if (duplicatesCheckedRef.current && !moved) {
         return;
       }
       duplicatesCheckedRef.current = true;
+      lastDuplicateCoordsRef.current = { lat: form.latitude, lng: form.longitude };
       try {
         const result = await incidentsApi.duplicatesCheck({
           latitude: form.latitude,
@@ -302,10 +309,7 @@ export function CreateIncidentPage() {
         {STEPS.map((label, index) => (
           <div
             key={label}
-            className={cn(
-              "h-1.5 flex-1 rounded-full",
-              index <= step ? "bg-primary" : "bg-muted",
-            )}
+            className={cn("h-1.5 flex-1 rounded-full", index <= step ? "bg-primary" : "bg-muted")}
           />
         ))}
       </div>
@@ -364,8 +368,8 @@ export function CreateIncidentPage() {
                 onChange={(e) => set("description", e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                {form.description.length} characters (minimum 20). Don't include personal
-                contact details — staff will use your account information.
+                {form.description.length} characters (minimum 20). Don't include personal contact
+                details — staff will use your account information.
               </p>
             </div>
           )}
@@ -375,7 +379,10 @@ export function CreateIncidentPage() {
               <div className="relative">
                 <Label htmlFor="address-search">Search for a place</Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+                  <Search
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                    aria-hidden
+                  />
                   <Input
                     id="address-search"
                     placeholder="e.g. Shivaji Park, Bandra, Mumbai"
@@ -386,12 +393,25 @@ export function CreateIncidentPage() {
                 </div>
                 {addressLoading && <p className="text-xs text-muted-foreground mt-1">Searching…</p>}
                 {addressResults.length > 0 && (
-                  <ul className="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-lg max-h-60 overflow-auto">
+                  <ul
+                    className="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-lg max-h-60 overflow-auto"
+                    role="listbox"
+                    aria-label="Address suggestions"
+                  >
                     {addressResults.map((r) => (
                       <li
                         key={r.place_id}
+                        role="option"
+                        aria-selected={false}
+                        tabIndex={0}
                         onClick={() => selectAddress(r)}
-                        className="px-3 py-2 text-sm hover:bg-accent cursor-pointer"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            selectAddress(r);
+                          }
+                        }}
+                        className="px-3 py-2 text-sm hover:bg-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         <p className="font-medium">{r.display_name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -415,7 +435,15 @@ export function CreateIncidentPage() {
                 </span>
               </div>
               <div className="h-72 overflow-hidden rounded-lg border">
-                <MapContainer center={form.latitude && form.longitude ? [form.latitude, form.longitude] : MUMBAI_CENTER} zoom={form.latitude ? 16 : 12} className="h-full w-full">
+                <MapContainer
+                  center={
+                    form.latitude && form.longitude
+                      ? [form.latitude, form.longitude]
+                      : MUMBAI_CENTER
+                  }
+                  zoom={form.latitude ? 16 : 12}
+                  className="h-full w-full"
+                >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -488,13 +516,11 @@ export function CreateIncidentPage() {
                   value={form.urgency}
                   onChange={(e) => set("urgency", e.target.value as Urgency)}
                 >
-                  {(Object.entries(URGENCY_LABELS) as [Urgency, string][]).map(
-                    ([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ),
-                  )}
+                  {(Object.entries(URGENCY_LABELS) as [Urgency, string][]).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
                 </Select>
               </div>
             </div>
@@ -519,12 +545,16 @@ export function CreateIncidentPage() {
                   ref={fileInputRef}
                   type="file"
                   className="sr-only"
-                  accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,application/pdf"
-                  capture="environment"
+                  accept="image/*"
                   multiple
                   onChange={(e) => addFiles(e.target.files)}
                 />
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => fileInputRef.current?.click()}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Camera className="h-4 w-4" /> Choose files / take photo
                 </Button>
               </div>
@@ -570,14 +600,14 @@ export function CreateIncidentPage() {
                 <span>
                   <span className="font-medium">Submit anonymously</span>
                   <span className="block text-muted-foreground">
-                    Your name will not appear on the public report. (You'll still be able to
-                    track it from your account.)
+                    Your name will not appear on the public report. (You'll still be able to track
+                    it from your account.)
                   </span>
                 </span>
               </label>
               <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                By submitting you confirm the information is accurate. False reports may be
-                rejected by moderators. Your contact details are never shown publicly.
+                By submitting you confirm the information is accurate. False reports may be rejected
+                by moderators. Your contact details are never shown publicly.
               </p>
             </div>
           )}

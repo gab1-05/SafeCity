@@ -51,3 +51,9 @@ jobs:
       - run: terraform fmt -check -recursive ../../../
       - run: terraform init -backend=false
       - run: terraform validate
+      # Plan is informational only — never `apply` (EKS/NAT/RDS ≈ $185/mo).
+      - run: terraform plan -input=false -no-color -out=tfplan > tfplan.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ matrix.env }}
+          path: infrastructure/terraform/environments/${{ matrix.env }}/tfplan.txt

@@ -29,10 +29,14 @@ def jitter_coordinates(lat: float, lng: float, meters: int) -> tuple[float, floa
     """
     Deterministic per-coordinate offset (≈meters) so public maps show an
     approximate location instead of an exact point.
+
+    The SECRET_KEY salts the seed so offsets are not reproducible by an
+    outsider who knows the algorithm; the seed stays deterministic so the
+    same incident always maps to the same public point.
     """
     if meters <= 0:
         return lat, lng
-    rng = random.Random(f"{lat:.6f}:{lng:.6f}")
+    rng = random.Random(f"{settings.SECRET_KEY}:{lat:.6f}:{lng:.6f}")
     dlat = rng.uniform(-meters, meters) / 111_320
     dlng = rng.uniform(-meters, meters) / (
         111_320 * max(0.2, __import__("math").cos(__import__("math").radians(lat)))
@@ -226,6 +230,38 @@ class IncidentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
         return bool(user and user.is_authenticated and obj.reporter_id == user.id)
+
+    def to_representation(self, instance):
+        """Strip PII for non-authority readers.
+
+        Exact coordinates, `address_private` and the reporter's name are
+        authority-only. Everyone else gets jittered coordinates (same as the
+        public serializer), no private address, and an anonymized display
+        name; `is_reporter` still tells owners a report is theirs.
+        """
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        is_authority = bool(
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and hasattr(user, "is_authority")
+            and user.is_authority()
+        )
+        if is_authority:
+            return data
+        data.pop("address_private", None)
+        data["reporter_display"] = "Anonymous"
+        try:
+            lat, lng = jitter_coordinates(
+                float(instance.latitude), float(instance.longitude), _jitter_meters()
+            )
+        except (TypeError, ValueError):
+            pass
+        else:
+            data["latitude"] = lat
+            data["longitude"] = lng
+        return data
 
 
 class IncidentCreateSerializer(serializers.ModelSerializer):

@@ -22,10 +22,7 @@ declare global {
             auto_select?: boolean;
             use_fedcm_for_prompt?: boolean;
           }) => void;
-          renderButton: (
-            parent: HTMLElement,
-            options: Record<string, unknown>,
-          ) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
         };
       };
     };
@@ -54,9 +51,7 @@ function fetchMetaConfig(): Promise<MetaConfig> {
 function loadGisScript(): Promise<void> {
   if (window.google?.accounts?.id) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${GIS_SRC}"]`,
-    );
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${GIS_SRC}"]`);
     if (existing) {
       if (existing.dataset.loaded === "true") resolve();
       else existing.addEventListener("load", () => resolve());

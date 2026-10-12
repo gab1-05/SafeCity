@@ -40,7 +40,11 @@ export function TwoFactorSetupPage() {
       setOtpauthUri(data.otpauth_uri);
       setRecoveryCodes(data.recovery_codes);
     } catch (error) {
-      toast({ title: "Failed to load 2FA setup", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Failed to load 2FA setup",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     }
   };
 
@@ -58,7 +62,11 @@ export function TwoFactorSetupPage() {
       toast({ title: "2FA enabled", description: result.detail, variant: "success" });
       setStep("complete");
     } catch (error) {
-      toast({ title: "Verification failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Verification failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -75,7 +83,11 @@ export function TwoFactorSetupPage() {
         <CardHeader className="text-center">
           <ShieldCheck className="mx-auto mb-2 h-10 w-10 text-primary" aria-hidden />
           <CardTitle className="text-2xl">
-            {step === "setup" ? "Set up two-factor authentication" : step === "verify" ? "Verify authenticator app" : "2FA enabled"}
+            {step === "setup"
+              ? "Set up two-factor authentication"
+              : step === "verify"
+                ? "Verify authenticator app"
+                : "2FA enabled"}
           </CardTitle>
           <CardDescription>
             {step === "setup" && "Add an extra layer of security to your account."}
@@ -107,12 +119,7 @@ export function TwoFactorSetupPage() {
               <div className="space-y-2">
                 <Label htmlFor="secret">Manual entry key</Label>
                 <div className="flex gap-2">
-                  <Input
-                    id="secret"
-                    value={secret}
-                    readOnly
-                    className="font-mono text-sm flex-1"
-                  />
+                  <Input id="secret" value={secret} readOnly className="font-mono text-sm flex-1" />
                   <Button variant="outline" onClick={() => copyToClipboard(secret, "Secret key")}>
                     Copy
                   </Button>
@@ -123,7 +130,11 @@ export function TwoFactorSetupPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Recovery codes</Label>
-                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(recoveryCodes.join("\n"), "Recovery codes")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(recoveryCodes.join("\n"), "Recovery codes")}
+                  >
                     <Download className="h-4 w-4" /> Copy all
                   </Button>
                 </div>
@@ -161,7 +172,11 @@ export function TwoFactorSetupPage() {
                   aria-invalid={!!errors.token}
                   {...register("token")}
                 />
-                {errors.token && <p className="text-sm text-danger" role="alert">{errors.token.message}</p>}
+                {errors.token && (
+                  <p className="text-sm text-danger" role="alert">
+                    {errors.token.message}
+                  </p>
+                )}
               </div>
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? "Verifying…" : "Verify & enable 2FA"}

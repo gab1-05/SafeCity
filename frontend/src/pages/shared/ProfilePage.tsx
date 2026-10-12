@@ -15,7 +15,12 @@ export function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [profile, setProfile] = useState({ first_name: "", last_name: "", phone: "", language: "en" });
+  const [profile, setProfile] = useState({
+    first_name: "",
+    last_name: "",
+    phone: "",
+    language: "en",
+  });
   const [prefs, setPrefs] = useState({ in_app: true, email: true, sms: false });
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,7 +67,11 @@ export function ProfilePage() {
       queryClient.setQueryData(["me"], me);
       toast({ title: "Profile updated", variant: "success" });
     } catch (error) {
-      toast({ title: "Update failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Update failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -86,7 +95,11 @@ export function ProfilePage() {
         variant: "success",
       });
     } catch (error) {
-      toast({ title: "Request failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Request failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     }
   };
 
@@ -96,7 +109,11 @@ export function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       toast({ title: "Session revoked", variant: "success" });
     } catch (error) {
-      toast({ title: "Could not revoke session", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Could not revoke session",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     }
   };
 
@@ -130,7 +147,11 @@ export function ProfilePage() {
       });
       refetchRoleRequests();
     } catch (error) {
-      toast({ title: "Request failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Request failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -223,11 +244,17 @@ export function ProfilePage() {
         <CardContent>
           <ul className="space-y-2">
             {sessions?.map((session) => (
-              <li key={session.id} className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm">
+              <li
+                key={session.id}
+                className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm"
+              >
                 <div>
-                  <p className="font-medium">{session.active ? "Active session" : "Revoked session"}</p>
+                  <p className="font-medium">
+                    {session.active ? "Active session" : "Revoked session"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    Created {formatDate(session.created_at)} · expires {formatDate(session.expires_at)}
+                    Created {formatDate(session.created_at)} · expires{" "}
+                    {formatDate(session.expires_at)}
                   </p>
                 </div>
                 {session.active && (
@@ -250,13 +277,15 @@ export function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Current role: <span className="font-medium text-foreground">{user?.role?.replace("_", " ")}</span>
+            Current role:{" "}
+            <span className="font-medium text-foreground">{user?.role?.replace("_", " ")}</span>
             {user?.department && <> · {user.department}</>}
           </p>
           {pendingRequest ? (
             <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-              Pending request: <span className="font-medium">{pendingRequest.requested_role.replace("_", " ")}</span>
-              {" "}— an administrator will review it.
+              Pending request:{" "}
+              <span className="font-medium">{pendingRequest.requested_role.replace("_", " ")}</span>{" "}
+              — an administrator will review it.
             </p>
           ) : (
             <form onSubmit={submitRoleRequest} className="space-y-3">
@@ -267,8 +296,12 @@ export function ProfilePage() {
                     Select a role…
                   </option>
                   <option value="volunteer">Volunteer — help with verified incidents</option>
-                  <option value="department_staff">Department staff — manage department incidents</option>
-                  <option value="emergency_responder">Emergency responder — handle emergencies</option>
+                  <option value="department_staff">
+                    Department staff — manage department incidents
+                  </option>
+                  <option value="emergency_responder">
+                    Emergency responder — handle emergencies
+                  </option>
                 </Select>
               </div>
               <div className="space-y-2">
@@ -296,7 +329,9 @@ export function ProfilePage() {
               {myRoleRequests.slice(0, 5).map((r) => (
                 <li key={r.id}>
                   {r.requested_role.replace("_", " ")} — {r.status}
-                  {r.reviewed_at ? ` (reviewed ${new Date(r.reviewed_at).toLocaleDateString()})` : ""}
+                  {r.reviewed_at
+                    ? ` (reviewed ${new Date(r.reviewed_at).toLocaleDateString()})`
+                    : ""}
                 </li>
               ))}
             </ul>
@@ -310,8 +345,8 @@ export function ProfilePage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Requests are reviewed by an administrator. Your reports remain for audit purposes
-            but your personal details are removed.
+            Requests are reviewed by an administrator. Your reports remain for audit purposes but
+            your personal details are removed.
           </p>
           <Button variant="danger" className="mt-3" onClick={() => setDeleteOpen(true)}>
             Request account deletion

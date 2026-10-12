@@ -9,6 +9,7 @@ Validation layers:
 EXIF stripping + thumbnails happen asynchronously in Celery (process_media).
 """
 
+import contextlib
 import uuid
 
 from django.conf import settings
@@ -107,13 +108,22 @@ def _validate_upload(file) -> str | None:
     video_exts = (".mp4", ".webm", ".mov")
     doc_exts = (".pdf",)
 
-    if name.endswith(image_exts) or content_type in limits["allowed_image_types"]:
+    def _cts(key: str) -> set[str]:
+        return {str(c).lower() for c in limits[key]}
+
+    image_ok = name.endswith(image_exts) and content_type in _cts("allowed_image_types")
+    video_ok = name.endswith(video_exts) and content_type in _cts("allowed_video_types")
+    doc_ok = name.endswith(doc_exts) and content_type in _cts("allowed_doc_types")
+
+    # Extension AND declared content-type must agree — either one alone is
+    # trivially spoofable.
+    if image_ok:
         max_mb = limits["image_max_mb"]
         kind = "image"
-    elif name.endswith(video_exts) or content_type in limits["allowed_video_types"]:
+    elif video_ok:
         max_mb = limits["video_max_mb"]
         kind = "video"
-    elif name.endswith(doc_exts) or content_type in limits["allowed_doc_types"]:
+    elif doc_ok:
         max_mb = limits["doc_max_mb"]
         kind = "document"
     else:
@@ -130,7 +140,36 @@ def _validate_upload(file) -> str | None:
             file.seek(0)
         except Exception:  # noqa: BLE001
             return "The image file is corrupted or not a valid image."
+    elif kind == "video":
+        if not _has_video_magic(file):
+            return "The video file header does not match its declared type."
+    else:
+        if not _has_pdf_magic(file):
+            return "The document is not a valid PDF."
     return None
+
+
+def _read_head(file, n: int = 12) -> bytes:
+    """Peek at the first bytes (magic number) without consuming the upload."""
+    try:
+        head = file.read(n)
+    except Exception:  # noqa: BLE001
+        return b""
+    with contextlib.suppress(Exception):
+        file.seek(0)
+    return bytes(head or b"")
+
+
+def _has_video_magic(file) -> bool:
+    """MP4/MOV start with an ftyp box; WebM/EBML starts with 0x1A45DFA3."""
+    head = _read_head(file)
+    if len(head) >= 8 and head[4:8] == b"ftyp":
+        return True
+    return head[:4] == b"\x1a\x45\xdf\xa3"
+
+
+def _has_pdf_magic(file) -> bool:
+    return _read_head(file, 5).startswith(b"%PDF")
 
 
 def _detect_media_type(file) -> str:

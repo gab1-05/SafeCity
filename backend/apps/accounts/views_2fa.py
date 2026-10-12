@@ -39,6 +39,8 @@ class TwoFactorSetupView(APIView):
         # Store secret temporarily in session (not in DB until verified)
         request.session["2fa_setup_secret"] = secret
         request.session["2fa_setup_recovery"] = [hash_recovery_code(c) for c in recovery_codes]
+        # Plaintext kept server-side in session only, returned once on POST.
+        request.session["2fa_setup_recovery_plain"] = recovery_codes
 
         # Return QR code URI for authenticator apps
         issuer = "SafeCity"
@@ -61,8 +63,9 @@ class TwoFactorSetupView(APIView):
 
         secret = request.session.get("2fa_setup_secret")
         recovery_hashes = request.session.get("2fa_setup_recovery")
+        recovery_plain = request.session.get("2fa_setup_recovery_plain")
 
-        if not secret or not recovery_hashes:
+        if not secret or not recovery_hashes or not recovery_plain:
             return Response({"detail": "Setup session expired. Start over."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = TwoFactorVerifySerializer(data=request.data)
@@ -82,10 +85,11 @@ class TwoFactorSetupView(APIView):
         # Clear session
         request.session.pop("2fa_setup_secret", None)
         request.session.pop("2fa_setup_recovery", None)
+        request.session.pop("2fa_setup_recovery_plain", None)
 
         log_action(actor=user, action="auth.2fa_enabled", obj=user, request=request)
 
-        return Response({"detail": "Two-factor authentication enabled.", "recovery_codes": recovery_hashes})
+        return Response({"detail": "Two-factor authentication enabled.", "recovery_codes": recovery_plain})
 
 
 class TwoFactorDisableView(APIView):
@@ -140,6 +144,8 @@ class TwoFactorVerifyLoginView(APIView):
     permission_classes = [AllowAny]
     # Stock JWTAuthentication (not Strict): it must accept the challenge token.
     authentication_classes = [JWTAuthentication]
+    # ScopedRateThrottle is in DEFAULT_THROTTLE_CLASSES, so this attribute is enough.
+    throttle_scope = "auth"
 
     def post(self, request):
         user = request.user

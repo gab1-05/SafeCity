@@ -22,7 +22,12 @@ import { analyticsApi, incidentsApi } from "@/api/incidents";
 export function AnalyticsPage() {
   const [days, setDays] = useState(30);
 
-  const { data: summary, isPending, isError, refetch } = useQuery({
+  const {
+    data: summary,
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["analytics-summary", days],
     queryFn: () => analyticsApi.summary(days),
   });
@@ -47,7 +52,8 @@ export function AnalyticsPage() {
     queryFn: () => analyticsApi.byDimension("status", days),
   });
 
-  if (isError) return <ErrorState message="Could not load analytics." onRetry={refetch} />;
+  if (isError)
+    return <ErrorState message="Could not load analytics." onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-6">
@@ -100,7 +106,11 @@ export function AnalyticsPage() {
             <StatCard
               label="SLA compliance"
               value={summary.sla_compliance_pct !== null ? `${summary.sla_compliance_pct}%` : "—"}
-              tone={summary.sla_compliance_pct !== null && summary.sla_compliance_pct < 80 ? "danger" : "success"}
+              tone={
+                summary.sla_compliance_pct !== null && summary.sla_compliance_pct < 80
+                  ? "danger"
+                  : "success"
+              }
             />
             <StatCard label="Resolved" value={summary.resolved_in_window} tone="success" />
             <StatCard label="Emergency open" value={summary.emergency} tone="danger" />
@@ -120,8 +130,20 @@ export function AnalyticsPage() {
               <YAxis fontSize={12} allowDecimals={false} />
               <ChartTooltip />
               <Legend />
-              <Line type="monotone" dataKey="total" stroke="#1b6f8b" name="Submitted" strokeWidth={2} />
-              <Line type="monotone" dataKey="resolved" stroke="#16a34a" name="Resolved" strokeWidth={2} />
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#1b6f8b"
+                name="Submitted"
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="resolved"
+                stroke="#16a34a"
+                name="Resolved"
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -140,7 +162,12 @@ export function AnalyticsPage() {
                 <YAxis type="category" dataKey="name" width={130} fontSize={11} />
                 <ChartTooltip />
                 <Bar dataKey="resolved" fill="#16a34a" name="Resolved" radius={[0, 3, 3, 0]} />
-                <Bar dataKey="sla_breached" fill="#dc2626" name="SLA breached" radius={[0, 3, 3, 0]} />
+                <Bar
+                  dataKey="sla_breached"
+                  fill="#dc2626"
+                  name="SLA breached"
+                  radius={[0, 3, 3, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

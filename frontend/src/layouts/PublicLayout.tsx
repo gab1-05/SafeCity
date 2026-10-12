@@ -14,7 +14,11 @@ function ThemeToggle() {
   ];
 
   return (
-    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1" role="group" aria-label="Theme selection">
+    <div
+      className="flex items-center gap-1 bg-muted/50 rounded-lg p-1"
+      role="group"
+      aria-label="Theme selection"
+    >
       {modes.map((mode) => (
         <button
           key={mode.value}
@@ -41,21 +45,37 @@ export function PublicLayout() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-bold text-primary" aria-label="SafeCity Home">
+          <Link
+            to="/"
+            className="flex items-center gap-2 font-bold text-primary"
+            aria-label="SafeCity Home"
+          >
             <ShieldCheck className="h-7 w-7" aria-hidden />
             <span className="text-xl">SafeCity</span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
-            <Link to="/map" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              to="/map"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
               Live Map
             </Link>
-            <Link to="/track" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              to="/track"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
               Track Report
             </Link>
-            <Link to="/announcements" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              to="/announcements"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
               Announcements
             </Link>
-            <Link to="/about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              to="/about"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
               About
             </Link>
           </nav>
@@ -68,10 +88,14 @@ export function PublicLayout() {
             ) : (
               <>
                 <Link to="/login">
-                  <Button variant="ghost" size="sm">Log in</Button>
+                  <Button variant="ghost" size="sm">
+                    Log in
+                  </Button>
                 </Link>
                 <Link to="/register">
-                  <Button size="sm" className="btn-brand">Sign up</Button>
+                  <Button size="sm" className="btn-brand">
+                    Sign up
+                  </Button>
                 </Link>
               </>
             )}
@@ -92,11 +116,22 @@ export function PublicLayout() {
             </Link>
             <p>SDP Project, The Bombay Salesian Society. For coordination, not emergencies.</p>
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-4 md:gap-6" aria-label="Footer navigation">
-            <Link to="/about" className="hover:text-primary transition-colors">About</Link>
-            <Link to="/map" className="hover:text-primary transition-colors">Live Map</Link>
-            <Link to="/announcements" className="hover:text-primary transition-colors">Announcements</Link>
-            <Link to="/track" className="hover:text-primary transition-colors">Track Report</Link>
+          <nav
+            className="flex flex-wrap items-center justify-center gap-4 md:gap-6"
+            aria-label="Footer navigation"
+          >
+            <Link to="/about" className="hover:text-primary transition-colors">
+              About
+            </Link>
+            <Link to="/map" className="hover:text-primary transition-colors">
+              Live Map
+            </Link>
+            <Link to="/announcements" className="hover:text-primary transition-colors">
+              Announcements
+            </Link>
+            <Link to="/track" className="hover:text-primary transition-colors">
+              Track Report
+            </Link>
           </nav>
           <p className="flex items-center gap-3">
             <MapPin className="h-4 w-4" aria-hidden />
