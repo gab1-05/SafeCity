@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 interface Props {
   children: ReactNode;
@@ -25,9 +25,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, errorInfo);
-    toast.error("Something went wrong", {
+    toast({
+      title: "Something went wrong",
       description: error.message,
-      duration: Infinity,
+      variant: "error",
+      duration: 10_000,
       action: {
         label: "Reload",
         onClick: () => window.location.reload(),
@@ -59,11 +61,21 @@ export class ErrorBoundary extends Component<Props, State> {
               {this.state.error?.message || "An unexpected error occurred. Please try again."}
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button variant="brand" size="lg" onClick={this.handleRetry} className="w-full sm:w-auto">
+              <Button
+                variant="brand"
+                size="lg"
+                onClick={this.handleRetry}
+                className="w-full sm:w-auto"
+              >
                 <RefreshCw className="h-4 w-4 mr-2" aria-hidden />
                 Try again
               </Button>
-              <Button variant="outline" size="lg" onClick={this.handleHome} className="w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={this.handleHome}
+                className="w-full sm:w-auto"
+              >
                 <Home className="h-4 w-4 mr-2" aria-hidden />
                 Go home
               </Button>

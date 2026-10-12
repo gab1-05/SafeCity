@@ -73,6 +73,11 @@ def process_media(media_id: str):
             media.exif_stripped = True
         except Exception:
             logger.warning("Image processing failed for media %s", media_id, exc_info=True)
+            # Never mark clean when EXIF stripping failed — the file is
+            # unverified, so leave it pending for review/retry.
+            media.scan_status = "pending"
+            media.save(update_fields=["scan_status"])
+            return str(media.id)
 
     # Malware scan adapter (mock: marks clean; swap for ClamAV in prod)
     media.scan_status = "clean"

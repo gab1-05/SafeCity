@@ -4,12 +4,7 @@
  */
 
 export type UserRole =
-  | "citizen"
-  | "department_staff"
-  | "emergency_responder"
-  | "volunteer"
-  | "city_admin"
-  | "superuser";
+  "citizen" | "department_staff" | "emergency_responder" | "volunteer" | "city_admin" | "superuser";
 
 export type IncidentStatus =
   | "draft"

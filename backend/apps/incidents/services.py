@@ -113,6 +113,28 @@ class WorkflowError(ValidationError):
     """Raised for illegal workflow operations (mapped to HTTP 400/409 by DRF)."""
 
 
+# Only these keys of `extra_updates` in change_status() may be mass-assigned.
+_ALLOWED_EXTRA_UPDATES = frozenset({"resolution_summary"})
+
+
+def _noop_allowed(user: User, incident: Incident) -> bool:
+    """Who may treat a same-status write as an idempotent no-op."""
+    if getattr(user, "is_superuser", False) or user.role == UserRole.SUPERUSER:
+        return True
+    if user.role == UserRole.CITY_ADMIN:
+        return True
+    if user.role == UserRole.DEPARTMENT_STAFF:
+        return (
+            incident.department_id is not None
+            and incident.department_id == user.department_id
+        )
+    if user.role == UserRole.EMERGENCY_RESPONDER:
+        return True
+    if user.role == UserRole.CITIZEN:
+        return incident.reporter_id is not None and incident.reporter_id == user.id
+    return False
+
+
 def roles_allowed_for(user: User, incident: Incident, to_status: str) -> bool:
     """Check the transition matrix for this user/incident pair."""
     allowed_roles = TRANSITIONS.get(incident.status, {}).get(to_status)
@@ -120,14 +142,18 @@ def roles_allowed_for(user: User, incident: Incident, to_status: str) -> bool:
         return False
     if user.is_superuser or user.role == UserRole.SUPERUSER:
         return True
-    if user.role == UserRole.CITY_ADMIN and "city_admin" in allowed_roles:
-        return True
-    if user.role in allowed_roles:
-        return True
-    # department_staff transition on incidents of another department → deny
+    # department_staff must satisfy BOTH the matrix AND same-department
+    # membership — a role match alone is never sufficient.
     if user.role == UserRole.DEPARTMENT_STAFF:
-        return incident.department_id == user.department_id
-    return False
+        if user.role not in allowed_roles:
+            return False
+        return (
+            incident.department_id is not None
+            and incident.department_id == user.department_id
+        )
+    if user.role == UserRole.CITY_ADMIN:
+        return "city_admin" in allowed_roles
+    return user.role in allowed_roles
 
 
 def compute_sla_deadline(category: IncidentCategory, severity: str, from_time=None):
@@ -163,24 +189,26 @@ def assign_department_for_category(category: IncidentCategory):
 
 def pick_staff_workload_aware(department, exclude_user=None):
     """Choose the department staff member with the fewest open incidents."""
-    staff = User.objects.filter(
-        department=department, role=UserRole.DEPARTMENT_STAFF, is_active=True
+    from django.db.models import Count, Q
+
+    open_statuses = [
+        IncidentStatus.ASSIGNED,
+        IncidentStatus.IN_PROGRESS,
+        IncidentStatus.AWAITING_INFO,
+    ]
+    staff = (
+        User.objects.filter(
+            department=department, role=UserRole.DEPARTMENT_STAFF, is_active=True
+        ).annotate(
+            open_count=Count(
+                "assigned_incidents",
+                filter=Q(assigned_incidents__status__in=open_statuses),
+            )
+        )
     )
     if exclude_user:
         staff = staff.exclude(pk=exclude_user.pk)
-    best, best_count = None, None
-    for member in staff:
-        count = Incident.objects.filter(
-            assigned_staff=member,
-            status__in=[
-                IncidentStatus.ASSIGNED,
-                IncidentStatus.IN_PROGRESS,
-                IncidentStatus.AWAITING_INFO,
-            ],
-        ).count()
-        if best_count is None or count < best_count:
-            best, best_count = member, count
-    return best
+    return staff.order_by("open_count").first()
 
 
 @transaction.atomic
@@ -266,8 +294,21 @@ def change_status(
     Apply a validated status transition with all side effects:
     history, timestamps, audit log, SLA flags, notifications.
     """
+    if user is None or not getattr(user, "is_authenticated", False):
+        raise WorkflowError(
+            {"detail": "Authentication required.", "code": "forbidden"}
+        )
     if to_status == incident.status:
-        return incident  # idempotent no-op
+        # Idempotent no-op, but only for users authorized on this incident;
+        # unauthorized callers must not be able to probe states silently.
+        if _noop_allowed(user, incident):
+            return incident
+        raise WorkflowError(
+            {
+                "detail": f"Transition {incident.status} → {to_status} is not allowed for you.",
+                "code": "invalid_transition",
+            }
+        )
     if not roles_allowed_for(user, incident, to_status):
         raise WorkflowError(
             {
@@ -300,9 +341,9 @@ def change_status(
         setattr(incident, stamp_map[to_status], now)
 
     if to_status == IncidentStatus.RESOLVED and extra_updates:
-        incident.resolution_summary = extra_updates.get(
-            "resolution_summary", incident.resolution_summary
-        )
+        resolution = extra_updates.get("resolution_summary")
+        if resolution is not None:
+            incident.resolution_summary = resolution
     if to_status in (
         IncidentStatus.RESOLVED,
         IncidentStatus.CLOSED,
@@ -311,8 +352,11 @@ def change_status(
     ):
         incident.sla_breached = incident.sla_breached or incident.is_overdue
 
+    # Only explicitly whitelisted fields may be mass-assigned here — never
+    # status, reporter, department, timestamps or SLA internals.
     for k, v in (extra_updates or {}).items():
-        setattr(incident, k, v)
+        if k in _ALLOWED_EXTRA_UPDATES:
+            setattr(incident, k, v)
 
     incident.save()
 
@@ -435,6 +479,26 @@ def _track_false_report(reporter, status: str) -> None:
 @transaction.atomic
 def assign_incident(*, incident, assignee, user, note="", request=None) -> Incident:
     """Assign to a staff member (manual or workload-aware auto pick)."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        raise WorkflowError({"detail": "Authentication required.", "code": "forbidden"})
+    # Only operational managers may assign: city admins/superusers, plus
+    # department staff acting inside their own department. Citizens,
+    # volunteers and emergency responders (no queue authority) are refused.
+    if user.role in (
+        UserRole.CITIZEN,
+        UserRole.VOLUNTEER,
+        UserRole.EMERGENCY_RESPONDER,
+    ):
+        raise WorkflowError(
+            {
+                "detail": "Only department staff or administrators can assign incidents.",
+                "code": "forbidden",
+            }
+        )
+    if user.role == UserRole.DEPARTMENT_STAFF and incident.department_id != user.department_id:
+        raise WorkflowError(
+            {"detail": "Cannot assign outside your department.", "code": "forbidden_department"}
+        )
     if incident.status not in {
         IncidentStatus.SUBMITTED,
         IncidentStatus.VERIFIED,
@@ -525,8 +589,35 @@ def assign_incident(*, incident, assignee, user, note="", request=None) -> Incid
 
 
 @transaction.atomic
-def escalate_incident(*, incident, user, level="level_1", reason="", request=None) -> Incident:
+def escalate_incident(
+    *, incident, user, level="level_1", reason="", request=None, _internal=False
+) -> Incident:
     """Escalate an incident (supervisor → department head → emergency ops)."""
+    if user is None:
+        # The sweeps call with user=None; they must pass _internal=True so a
+        # missing actor can never slip through silently from API callers.
+        if not _internal:
+            raise WorkflowError(
+                {"detail": "Authentication required.", "code": "forbidden"}
+            )
+    else:
+        if getattr(user, "role", None) in (UserRole.CITIZEN, UserRole.VOLUNTEER):
+            raise WorkflowError(
+                {
+                    "detail": "Only authority roles can escalate incidents.",
+                    "code": "forbidden",
+                }
+            )
+        if (
+            user.role == UserRole.DEPARTMENT_STAFF
+            and incident.department_id != user.department_id
+        ):
+            raise WorkflowError(
+                {
+                    "detail": "Cannot escalate outside your department.",
+                    "code": "forbidden_department",
+                }
+            )
     if incident.status in {
         IncidentStatus.RESOLVED,
         IncidentStatus.CLOSED,
@@ -578,13 +669,35 @@ def escalate_incident(*, incident, user, level="level_1", reason="", request=Non
 @transaction.atomic
 def merge_incident(*, duplicate: Incident, parent: Incident, user, request=None) -> Incident:
     """Merge a duplicate into the canonical incident."""
+    if user is None or not getattr(user, "is_authenticated", False):
+        raise WorkflowError({"detail": "Authentication required.", "code": "forbidden"})
+    if user.role in (UserRole.CITIZEN, UserRole.VOLUNTEER):
+        raise WorkflowError(
+            {"detail": "Only authority roles can merge incidents.", "code": "forbidden"}
+        )
+    if user.role == UserRole.DEPARTMENT_STAFF:
+        own = duplicate.department_id or parent.department_id
+        if own != user.department_id:
+            raise WorkflowError(
+                {
+                    "detail": "Cannot merge outside your department.",
+                    "code": "forbidden_department",
+                }
+            )
     if duplicate.id == parent.id:
         raise WorkflowError(
             {"detail": "Cannot merge an incident into itself.", "code": "invalid_merge"}
         )
-    if parent.status in {IncidentStatus.REJECTED}:
+    if parent.status in {
+        IncidentStatus.REJECTED,
+        IncidentStatus.CLOSED,
+        IncidentStatus.DUPLICATE,
+    }:
         raise WorkflowError(
-            {"detail": "Cannot merge into a rejected incident.", "code": "invalid_merge"}
+            {
+                "detail": "Cannot merge into a rejected, closed or duplicate incident.",
+                "code": "invalid_merge",
+            }
         )
     duplicate.duplicate_of = parent
     duplicate.status = IncidentStatus.DUPLICATE
@@ -712,24 +825,29 @@ def sla_breach_sweep() -> int:
         IncidentStatus.REOPENED,
         IncidentStatus.ESCALATED,
     ]
-    overdue = Incident.objects.filter(
-        sla_breached=False,
-        sla_deadline__lt=timezone.now(),
-        status__in=open_statuses,
-    )
-    count = 0
-    for incident in overdue[:500]:  # batch cap per run
-        incident.sla_breached = True
-        incident.save(update_fields=["sla_breached", "updated_at"])
-        if incident.department:
-            notify_many_staff(
-                incident.department,
-                verb="incident.sla_breach",
-                title=f"SLA breached: {incident.reference_number}",
-                body=incident.title,
-                incident=incident,
+    with transaction.atomic():
+        overdue = list(
+            Incident.objects.select_for_update(skip_locked=True)
+            .filter(
+                sla_breached=False,
+                sla_deadline__lt=timezone.now(),
+                status__in=open_statuses,
             )
-        count += 1
+            .order_by("sla_deadline")[:500]  # batch cap per run
+        )
+        count = 0
+        for incident in overdue:
+            incident.sla_breached = True
+            incident.save(update_fields=["sla_breached", "updated_at"])
+            if incident.department:
+                notify_many_staff(
+                    incident.department,
+                    verb="incident.sla_breach",
+                    title=f"SLA breached: {incident.reference_number}",
+                    body=incident.title,
+                    incident=incident,
+                )
+            count += 1
     return count
 
 
@@ -737,19 +855,28 @@ def escalation_sweep() -> int:
     """Auto-escalate critical/emergency incidents still open past deadline."""
     from apps.incidents.models import Incident as I
 
-    candidates = I.objects.filter(
-        status__in=[IncidentStatus.SUBMITTED, IncidentStatus.UNDER_REVIEW, IncidentStatus.ASSIGNED],
-        is_emergency=True,
-        sla_breached=True,
-    )[:200]
-    count = 0
-    system = None
-    for incident in candidates:
-        escalate_incident(
-            incident=incident,
-            user=system,
-            level="level_3",
-            reason="Automatic escalation: emergency SLA breach",
+    with transaction.atomic():
+        candidates = list(
+            I.objects.select_for_update(skip_locked=True)
+            .filter(
+                status__in=[
+                    IncidentStatus.SUBMITTED,
+                    IncidentStatus.UNDER_REVIEW,
+                    IncidentStatus.ASSIGNED,
+                ],
+                is_emergency=True,
+                sla_breached=True,
+            )
+            .order_by("sla_deadline")[:200]
         )
-        count += 1
+        count = 0
+        for incident in candidates:
+            escalate_incident(
+                incident=incident,
+                user=None,
+                level="level_3",
+                reason="Automatic escalation: emergency SLA breach",
+                _internal=True,
+            )
+            count += 1
     return count

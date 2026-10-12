@@ -1,3 +1,5 @@
+import { tokenStore } from "@/api/client";
+
 type WebSocketMessage = {
   type: string;
   payload: unknown;
@@ -11,6 +13,7 @@ const log = (...args: unknown[]) => console.warn("[WS]", ...args);
 class WebSocketService {
   private ws: WebSocket | null = null;
   private url: string = "";
+  private token: string | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
@@ -21,8 +24,13 @@ class WebSocketService {
   connect(token?: string) {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) return;
 
+    // Backend authenticates via ?token=<access JWT> (see
+    // backend/apps/notifications/consumers.py) — browsers cannot set WS
+    // headers/subprotocols reliably, so the query param stays. Persist the
+    // token so reconnects re-attach it instead of connecting anonymously.
+    if (token) this.token = token;
     const wsUrl = import.meta.env.VITE_WS_URL ?? "ws://localhost:18081/ws/";
-    this.url = token ? `${wsUrl}?token=${token}` : wsUrl;
+    this.url = this.token ? `${wsUrl}?token=${this.token}` : wsUrl;
     this.isConnecting = true;
     this.shouldReconnect = true;
 
@@ -70,6 +78,7 @@ class WebSocketService {
 
   disconnect() {
     this.shouldReconnect = false;
+    this.token = null;
     if (this.ws) {
       this.ws.close(1000, "Client disconnect");
       this.ws = null;
@@ -131,8 +140,14 @@ export function useWebSocket() {
 }
 
 export function initializeWebSocket() {
-  const token = localStorage.getItem("safecity.access");
+  // Read the live session token via the store (single source of truth) so a
+  // just-completed login connects with the fresh token instead of racing it.
+  const token = tokenStore.access;
   if (token) {
     wsService.connect(token);
   }
+}
+
+export function disconnectWebSocket() {
+  wsService.disconnect();
 }

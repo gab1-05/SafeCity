@@ -2,7 +2,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SEVERITY_LABELS, STATUS_LABELS, type IncidentStatus, type Severity } from "@/types";
 
-const STATUS_VARIANTS: Record<IncidentStatus, "default" | "secondary" | "success" | "warning" | "danger" | "outline" | "ghost" | "brand"> = {
+const STATUS_VARIANTS: Record<
+  IncidentStatus,
+  "default" | "secondary" | "success" | "warning" | "danger" | "outline" | "ghost" | "brand"
+> = {
   draft: "ghost",
   submitted: "warning",
   under_review: "warning",
@@ -31,10 +34,7 @@ export function StatusBadge({ status }: { status: IncidentStatus }) {
 
 export function SeverityBadge({ severity, critical }: { severity: Severity; critical?: boolean }) {
   return (
-    <Badge
-      variant={SEVERITY_VARIANTS[severity]}
-      className={cn(critical && "animate-pulse")}
-    >
+    <Badge variant={SEVERITY_VARIANTS[severity]} className={cn(critical && "animate-pulse")}>
       {critical ? "EMERGENCY · " : ""}
       {SEVERITY_LABELS[severity]}
     </Badge>

@@ -1,14 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "@/api/client";
 import { cn } from "@/lib/utils";
 
-/** Footer status dot fed by /api/health/ (60s poll). Purely informational. */
+/** Health endpoint lives at /api/health/ (one level above the /api/v1 base). */
+const HEALTH_URL = `${API_BASE_URL.replace(/\/v1\/?$/, "")}/health/`;
+
+/** Footer status dot fed by the health endpoint (60s poll). Purely informational. */
 export function SystemStatus() {
   const { data, isError } = useQuery({
     queryKey: ["system-status"],
     queryFn: async (): Promise<{ status: string }> => {
-      const res = await fetch("/api/health/");
-      if (!res.ok) throw new Error("unhealthy");
-      return res.json();
+      const { data } = await axios.get(HEALTH_URL);
+      return data;
     },
     refetchInterval: 60_000,
     retry: 1,

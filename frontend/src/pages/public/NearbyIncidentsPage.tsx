@@ -11,7 +11,12 @@ import { Filter, X, ChevronDown, ChevronUp, MapPin, Circle, Zap, Users } from "l
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
 import { wsService } from "@/services/websocket";
-import { incidentsApi, referenceDataApi, MAP_ACTIVE_STATUSES, isVisibleOnMap } from "@/api/incidents";
+import {
+  incidentsApi,
+  referenceDataApi,
+  MAP_ACTIVE_STATUSES,
+  isVisibleOnMap,
+} from "@/api/incidents";
 
 const MUMBAI_CENTER: [number, number] = [19.076, 72.8777];
 
@@ -93,12 +98,15 @@ function FitBounds({ points }: { points: Array<[number, number]> }) {
 
 function UserLocationMarker({ position }: { position: [number, number] }) {
   return (
-    <Marker position={position} icon={L.divIcon({
-      className: "",
-      html: `<div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 0 3px #3b82f6,0 2px 8px rgba(0,0,0,.3)"></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    })} />
+    <Marker
+      position={position}
+      icon={L.divIcon({
+        className: "",
+        html: `<div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 0 3px #3b82f6,0 2px 8px rgba(0,0,0,.3)"></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      })}
+    />
   );
 }
 
@@ -133,7 +141,7 @@ export function NearbyIncidentsPage() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => setUserLocation(MUMBAI_CENTER)
+      () => setUserLocation(MUMBAI_CENTER),
     );
   }, []);
 
@@ -188,7 +196,12 @@ export function NearbyIncidentsPage() {
         ...incident,
         distance_km:
           (incident as Incident & { distance_km?: number }).distance_km ??
-          haversineKm(userLocation[0], userLocation[1], Number(incident.latitude), Number(incident.longitude)),
+          haversineKm(
+            userLocation[0],
+            userLocation[1],
+            Number(incident.latitude),
+            Number(incident.longitude),
+          ),
       }))
       .filter((incident: NearbyIncident) => incident.distance_km <= radiusKm)
       .sort((a: NearbyIncident, b: NearbyIncident) => a.distance_km - b.distance_km);
@@ -252,7 +265,12 @@ export function NearbyIncidentsPage() {
             {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
           {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="flex items-center gap-1"
+            >
               <X className="h-4 w-4" />
               Clear
             </Button>
@@ -265,7 +283,9 @@ export function NearbyIncidentsPage() {
           <CardContent className="pt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="radius-filter">Radius</label>
+                <label className="text-sm font-medium" htmlFor="radius-filter">
+                  Radius
+                </label>
                 <Select
                   id="radius-filter"
                   value={String(radiusKm)}
@@ -279,7 +299,9 @@ export function NearbyIncidentsPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="status-filter">Status</label>
+                <label className="text-sm font-medium" htmlFor="status-filter">
+                  Status
+                </label>
                 <Select
                   id="status-filter"
                   value={status}
@@ -288,12 +310,16 @@ export function NearbyIncidentsPage() {
                 >
                   <option value="">All</option>
                   {([...MAP_ACTIVE_STATUSES, "resolved"] as IncidentStatus[]).map((s) => (
-                    <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
+                    <option key={s} value={s}>
+                      {STATUS_LABELS[s] ?? s}
+                    </option>
                   ))}
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="severity-filter">Severity</label>
+                <label className="text-sm font-medium" htmlFor="severity-filter">
+                  Severity
+                </label>
                 <Select
                   id="severity-filter"
                   value={severity}
@@ -302,12 +328,16 @@ export function NearbyIncidentsPage() {
                 >
                   <option value="">All</option>
                   {(["low", "medium", "high", "critical"] as Severity[]).map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    <option key={s} value={s}>
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </option>
                   ))}
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="category-filter">Category</label>
+                <label className="text-sm font-medium" htmlFor="category-filter">
+                  Category
+                </label>
                 <Select
                   id="category-filter"
                   value={category}
@@ -316,7 +346,9 @@ export function NearbyIncidentsPage() {
                 >
                   <option value="">All</option>
                   {categories?.map((item) => (
-                    <option key={item.id} value={item.slug}>{item.name}</option>
+                    <option key={item.id} value={item.slug}>
+                      {item.name}
+                    </option>
                   ))}
                 </Select>
               </div>
@@ -371,7 +403,8 @@ export function NearbyIncidentsPage() {
                     </div>
                     <strong>{incident.title}</strong>
                     <p className="text-xs text-muted-foreground">
-                      {incident.category?.name} · {incident.ward_name ?? "—"} · {formatDate(incident.created_at)}
+                      {incident.category?.name} · {incident.ward_name ?? "—"} ·{" "}
+                      {formatDate(incident.created_at)}
                     </p>
                     {incident.address_public && (
                       <p className="text-xs">📍 {incident.address_public}</p>
@@ -395,7 +428,9 @@ export function NearbyIncidentsPage() {
 
           {/* Legend */}
           <div className="absolute bottom-3 left-3 z-[1000] rounded-lg border bg-card/95 p-3 shadow-md max-h-64 overflow-y-auto">
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categories</p>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Categories
+            </p>
             <ul className="space-y-1">
               {legendCategories.map(([slug, color]) => (
                 <li key={slug} className="flex items-center gap-2 text-xs">
@@ -404,7 +439,9 @@ export function NearbyIncidentsPage() {
                     style={{ backgroundColor: color }}
                     aria-hidden
                   />
-                  <span className="capitalize truncate max-w-[140px]">{slug.replace(/-/g, " ")}</span>
+                  <span className="capitalize truncate max-w-[140px]">
+                    {slug.replace(/-/g, " ")}
+                  </span>
                   <span className="text-muted-foreground">({byColor[slug]})</span>
                 </li>
               ))}
@@ -421,7 +458,10 @@ export function NearbyIncidentsPage() {
             </ul>
             <div className="mt-2 border-t pt-2">
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="inline-block h-3 w-3 rounded-full border-2 border-[#ef4444] bg-card" aria-hidden />
+                <span
+                  className="inline-block h-3 w-3 rounded-full border-2 border-[#ef4444] bg-card"
+                  aria-hidden
+                />
                 ring = high / critical severity
               </p>
             </div>
@@ -430,21 +470,24 @@ export function NearbyIncidentsPage() {
 
         {/* Sidebar - Incident List */}
         <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
-          {isPending && [1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="pt-6">
-                <div className="h-4 w-3/4 bg-muted rounded mb-2" />
-                <div className="h-3 w-1/2 bg-muted rounded" />
-              </CardContent>
-            </Card>
-          ))}
+          {isPending &&
+            [1, 2, 3].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="pt-6">
+                  <div className="h-4 w-3/4 bg-muted rounded mb-2" />
+                  <div className="h-3 w-1/2 bg-muted rounded" />
+                </CardContent>
+              </Card>
+            ))}
 
           {!isPending && incidents.length === 0 && (
             <Card className="text-center py-12">
               <CardContent>
                 <MapPin className="mx-auto h-12 w-12 text-muted-foreground/50" />
                 <p className="mt-4 text-muted-foreground">No incidents in this area</p>
-                <p className="text-sm text-muted-foreground/70">Try increasing the radius or adjusting filters</p>
+                <p className="text-sm text-muted-foreground/70">
+                  Try increasing the radius or adjusting filters
+                </p>
               </CardContent>
             </Card>
           )}
@@ -452,8 +495,17 @@ export function NearbyIncidentsPage() {
           {!isPending && incidents.length > 0 && (
             <>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>{incidents.length} incident{incidents.length !== 1 ? "s" : ""} found</span>
-                <Button variant="ghost" size="sm" onClick={() => { void refetch(); }} className="gap-1">
+                <span>
+                  {incidents.length} incident{incidents.length !== 1 ? "s" : ""} found
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    void refetch();
+                  }}
+                  className="gap-1"
+                >
                   <ChevronDown className="h-4 w-4" />
                   Refresh
                 </Button>
@@ -464,16 +516,20 @@ export function NearbyIncidentsPage() {
                     key={incident.id}
                     className={cn(
                       "cursor-pointer transition-all",
-                      incident.id === activeId && "border-primary/50 bg-primary/5"
+                      incident.id === activeId && "border-primary/50 bg-primary/5",
                     )}
                     onClick={() => setActiveId(incident.id === activeId ? null : incident.id)}
                   >
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-start gap-3">
-                        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                          style={{ backgroundColor: incident.category
-                            ? `hsl(var(--severity-${incident.severity}))`
-                            : "hsl(var(--muted))" }}>
+                        <div
+                          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                          style={{
+                            backgroundColor: incident.category
+                              ? `hsl(var(--severity-${incident.severity}))`
+                              : "hsl(var(--muted))",
+                          }}
+                        >
                           <SeverityBadge severity={incident.severity} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -487,9 +543,12 @@ export function NearbyIncidentsPage() {
                             )}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground truncate">
-                            {incident.category?.name} · {incident.ward_name ?? "—"} · {incident.distance_km.toFixed(1)} km away
+                            {incident.category?.name} · {incident.ward_name ?? "—"} ·{" "}
+                            {incident.distance_km.toFixed(1)} km away
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">{formatDate(incident.created_at)}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatDate(incident.created_at)}
+                          </p>
                         </div>
                         <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
                       </div>
@@ -502,7 +561,8 @@ export function NearbyIncidentsPage() {
                           )}
                           {incident.status === "resolved" && incident.resolved_at && (
                             <p className="text-xs text-success flex items-center gap-1">
-                              <Circle className="h-3 w-3" /> Resolved {formatDate(incident.resolved_at)}
+                              <Circle className="h-3 w-3" /> Resolved{" "}
+                              {formatDate(incident.resolved_at)}
                             </p>
                           )}
                           <a

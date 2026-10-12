@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { incidentsApi, referenceDataApi, MAP_ACTIVE_STATUSES, isVisibleOnMap } from "@/api/incidents";
+import {
+  incidentsApi,
+  referenceDataApi,
+  MAP_ACTIVE_STATUSES,
+  isVisibleOnMap,
+} from "@/api/incidents";
 import { useQuery } from "@tanstack/react-query";
 import { StatusBadge, SeverityBadge } from "@/components/incident/Badges";
 import { Select } from "@/components/ui/input";
@@ -169,7 +174,12 @@ export function PublicMapPage() {
             {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
           {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="flex items-center gap-1"
+            >
               <X className="h-4 w-4" />
               Clear
             </Button>
@@ -181,7 +191,9 @@ export function PublicMapPage() {
         <div className="mb-6 rounded-lg border bg-card p-4 animate-slide-down">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="status-filter">Status</label>
+              <label className="text-sm font-medium" htmlFor="status-filter">
+                Status
+              </label>
               <Select
                 id="status-filter"
                 aria-label="Filter by status"
@@ -198,7 +210,9 @@ export function PublicMapPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="severity-filter">Severity</label>
+              <label className="text-sm font-medium" htmlFor="severity-filter">
+                Severity
+              </label>
               <Select
                 id="severity-filter"
                 aria-label="Filter by severity"
@@ -215,7 +229,9 @@ export function PublicMapPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="category-filter">Category</label>
+              <label className="text-sm font-medium" htmlFor="category-filter">
+                Category
+              </label>
               <Select
                 id="category-filter"
                 aria-label="Filter by category"
@@ -232,7 +248,9 @@ export function PublicMapPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="ward-filter">Ward</label>
+              <label className="text-sm font-medium" htmlFor="ward-filter">
+                Ward
+              </label>
               <Select
                 id="ward-filter"
                 aria-label="Filter by ward"
@@ -249,7 +267,9 @@ export function PublicMapPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="date-from">From Date</label>
+              <label className="text-sm font-medium" htmlFor="date-from">
+                From Date
+              </label>
               <input
                 id="date-from"
                 type="date"
@@ -260,7 +280,9 @@ export function PublicMapPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium" htmlFor="date-to">To Date</label>
+              <label className="text-sm font-medium" htmlFor="date-to">
+                To Date
+              </label>
               <input
                 id="date-to"
                 type="date"
@@ -360,7 +382,10 @@ export function PublicMapPage() {
           </ul>
           <div className="mt-2 border-t pt-2">
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-block h-3 w-3 rounded-full border-2 border-[#ef4444] bg-card" aria-hidden />
+              <span
+                className="inline-block h-3 w-3 rounded-full border-2 border-[#ef4444] bg-card"
+                aria-hidden
+              />
               ring = high / critical severity
             </p>
           </div>
@@ -369,9 +394,7 @@ export function PublicMapPage() {
 
       {isPending && <p className="mt-2 text-sm text-muted-foreground">Loading incidents…</p>}
       {!isPending && incidents.length === 0 && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          No public incidents to display yet.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">No public incidents to display yet.</p>
       )}
     </div>
   );

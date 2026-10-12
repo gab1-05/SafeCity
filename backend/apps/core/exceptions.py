@@ -55,7 +55,7 @@ def safecity_exception_handler(exc, context):
     if isinstance(exc, exceptions.Throttled):
         wait = getattr(exc, "wait", None)
         if wait is not None:
-            response["Retry-After"] = "%d" % wait
+            response["Retry-After"] = str(int(wait))
         response["X-RateLimit-Remaining"] = "0"
 
     return response

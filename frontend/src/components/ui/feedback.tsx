@@ -4,15 +4,16 @@ import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("animate-pulse rounded-md bg-muted", className)}
-      {...props}
-    />
-  );
+  return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props} />;
 }
 
-export function Spinner({ className, size = "default" }: { className?: string; size?: "sm" | "default" | "lg" }) {
+export function Spinner({
+  className,
+  size = "default",
+}: {
+  className?: string;
+  size?: "sm" | "default" | "lg";
+}) {
   const sizeClasses = {
     sm: "h-4 w-4",
     default: "h-5 w-5",
@@ -67,7 +68,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
         {message || "An unexpected error occurred. Please try again."}
       </p>
       {onRetry && (
-        <Button variant="outline" size="sm" className="mt-6" onClick={onRetry}>
+        <Button variant="outline" size="sm" className="mt-6" onClick={() => onRetry()}>
           Try again
         </Button>
       )}
@@ -108,7 +109,9 @@ export function StatCard({
           {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
           {trend && (
             <div className="mt-2 flex items-center gap-1 text-xs">
-              <span className={cn("font-medium", trend.value >= 0 ? "text-success" : "text-danger")}>
+              <span
+                className={cn("font-medium", trend.value >= 0 ? "text-success" : "text-danger")}
+              >
                 {trend.value >= 0 ? "▲" : "▼"} {Math.abs(trend.value)}%
               </span>
               {trendLabel && <span className="text-muted-foreground">{trendLabel}</span>}
@@ -133,6 +136,10 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   destructive = false,
   variant = "default",
+  noteLabel,
+  notePlaceholder,
+  noteValue,
+  onNoteChange,
   onConfirm,
   onCancel,
 }: {
@@ -143,6 +150,11 @@ export function ConfirmDialog({
   cancelLabel?: string;
   destructive?: boolean;
   variant?: "default" | "danger" | "warning";
+  /** Optional audited note field (e.g. status-change reason). */
+  noteLabel?: string;
+  notePlaceholder?: string;
+  noteValue?: string;
+  onNoteChange?: (value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -159,19 +171,45 @@ export function ConfirmDialog({
     >
       <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl animate-scale-in">
         <div className="flex items-start gap-3">
-          <div className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            destructive && "bg-danger/10 text-danger",
-            variant === "warning" && "bg-warning/10 text-warning",
-            !destructive && variant === "default" && "bg-primary/10 text-primary"
-          )}>
-            {destructive ? <XCircle className="h-5 w-5" /> : variant === "warning" ? <AlertTriangle className="h-5 w-5" /> : <Info className="h-5 w-5" />}
+          <div
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+              destructive && "bg-danger/10 text-danger",
+              variant === "warning" && "bg-warning/10 text-warning",
+              !destructive && variant === "default" && "bg-primary/10 text-primary",
+            )}
+          >
+            {destructive ? (
+              <XCircle className="h-5 w-5" />
+            ) : variant === "warning" ? (
+              <AlertTriangle className="h-5 w-5" />
+            ) : (
+              <Info className="h-5 w-5" />
+            )}
           </div>
           <div className="flex-1">
-            <h2 id="confirm-title" className="text-lg font-semibold">{title}</h2>
+            <h2 id="confirm-title" className="text-lg font-semibold">
+              {title}
+            </h2>
             {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
           </div>
         </div>
+        {onNoteChange && (
+          <div className="mt-4 space-y-1.5">
+            {noteLabel && (
+              <label htmlFor="confirm-note" className="text-sm font-medium">
+                {noteLabel}
+              </label>
+            )}
+            <textarea
+              id="confirm-note"
+              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder={notePlaceholder}
+              value={noteValue ?? ""}
+              onChange={(e) => onNoteChange(e.target.value)}
+            />
+          </div>
+        )}
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" onClick={onCancel}>
             {cancelLabel}
@@ -222,7 +260,7 @@ export function Alert({
     <div
       className={cn(
         "relative flex items-start gap-3 rounded-lg border p-4",
-        variantStyles[variant]
+        variantStyles[variant],
       )}
       role="alert"
     >

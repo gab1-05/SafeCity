@@ -30,15 +30,13 @@ export function ForgotPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle>Reset your password</CardTitle>
-          <CardDescription>
-            We'll email you a reset link if the account exists.
-          </CardDescription>
+          <CardDescription>We'll email you a reset link if the account exists.</CardDescription>
         </CardHeader>
         <CardContent>
           {sent ? (
             <p className="text-center text-sm text-success" role="status">
-              If that email is registered, a reset link is on its way. Check your inbox
-              (or the backend console output in local development).
+              If that email is registered, a reset link is on its way. Check your inbox (or the
+              backend console output in local development).
             </p>
           ) : (
             <form onSubmit={onSubmit} className="space-y-4" noValidate>

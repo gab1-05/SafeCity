@@ -19,11 +19,12 @@ from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.throttling import UserRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.models import User, UserRole
 from apps.accounts.permissions import (
+    IsCityAdmin,
     can_view_incident,
     can_view_internal_notes,
 )
@@ -77,7 +78,11 @@ class PublicByTokenView(APIView):
     throttle_scope = "anon"
 
     def get(self, request, token: str):
-        incident = Incident.objects.filter(pk=token, deleted_at__isnull=True).first()
+        # No separate share-token field exists on Incident: the UUID pk is the
+        # unguessable link. Anonymous reports are never shareable this way.
+        incident = Incident.objects.filter(
+            pk=token, deleted_at__isnull=True, is_anonymous=False
+        ).first()
         if incident is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(IncidentPublicSerializer(incident, context={"request": request}).data)
@@ -119,6 +124,7 @@ def scoped_incident_queryset(user, params):
         "category",
         "department",
         "ward",
+        "reporter",
         "assigned_staff",
         "assigned_responder",
     ).filter(deleted_at__isnull=True)
@@ -190,13 +196,16 @@ class IncidentViewSet(viewsets.ModelViewSet):
     """
 
     # List must be reachable anonymously (public map); writes stay auth-only.
+    # Anonymous list/retrieve traffic is throttled by the global `anon` rate.
     permission_classes = [permissions.AllowAny]
-    throttle_classes = []
+    throttle_classes = [AnonRateThrottle]
 
     def get_throttles(self):
         if self.action == "create":
             self.throttle_scope = "incident_create"
             return [IncidentThrottle()]
+        if self.action in ("list", "retrieve"):
+            return [AnonRateThrottle()]
         return super().get_throttles()
 
     def get_serializer_class(self):
@@ -290,15 +299,18 @@ class IncidentViewSet(viewsets.ModelViewSet):
         to_status = request.data.get("status")
         if not to_status:
             return Response({"detail": "status is required."}, status=status.HTTP_400_BAD_REQUEST)
+        # Only forward an explicitly supplied resolution_summary — a default
+        # of "" here would wipe the stored summary on every resolve call.
+        extra_updates = None
+        if to_status == IncidentStatus.RESOLVED and "resolution_summary" in request.data:
+            extra_updates = {"resolution_summary": request.data.get("resolution_summary")}
         incident = services.change_status(
             incident=incident,
             to_status=to_status,
             user=request.user,
             note=request.data.get("note", ""),
             request=request,
-            extra_updates={"resolution_summary": request.data.get("resolution_summary", "")}
-            if to_status == IncidentStatus.RESOLVED
-            else None,
+            extra_updates=extra_updates,
         )
         return Response(IncidentSerializer(incident, context={"request": request}).data)
 
@@ -380,8 +392,17 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def confirm_action(self, request, pk=None):
         incident = self.get_object()
         rating = request.data.get("rating")
-        if rating is not None and not 1 <= int(rating) <= 5:
-            return Response({"detail": "rating must be 1–5."}, status=status.HTTP_400_BAD_REQUEST)
+        if rating is not None:
+            try:
+                rating = int(rating)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "rating must be 1–5."}, status=status.HTTP_400_BAD_REQUEST
+                )
+            if not 1 <= rating <= 5:
+                return Response(
+                    {"detail": "rating must be 1–5."}, status=status.HTTP_400_BAD_REQUEST
+                )
         incident = services.confirm_resolution(
             incident=incident,
             user=request.user,
@@ -570,7 +591,8 @@ class SLAConfigurationViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
             return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated()]  # Only admins can write
+        # Writes are admin-only (city_admin / superuser).
+        return [permissions.IsAuthenticated(), IsCityAdmin()]
 
 
 class EscalationRuleViewSet(viewsets.ModelViewSet):
@@ -583,6 +605,12 @@ class EscalationRuleViewSet(viewsets.ModelViewSet):
     serializer_class = EscalationRuleSerializer
     permission_classes = [permissions.IsAuthenticated]
     ordering = ["priority", "created_at"]
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [permissions.IsAuthenticated()]
+        # Writes are admin-only (city_admin / superuser).
+        return [permissions.IsAuthenticated(), IsCityAdmin()]
 
 
 class DuplicateCheckView(APIView):

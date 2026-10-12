@@ -74,7 +74,11 @@ export function AnnouncementAdminPage() {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       toast({ title: "Unpublished", variant: "success" });
     } catch (error) {
-      toast({ title: "Update failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Update failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -88,7 +92,11 @@ export function AnnouncementAdminPage() {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       toast({ title: "Deleted", variant: "success" });
     } catch (error) {
-      toast({ title: "Delete failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Delete failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -100,9 +108,16 @@ export function AnnouncementAdminPage() {
       await client.patch(`/announcements/${a.id}/`, { is_pinned: !a.is_pinned });
       queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
-      toast({ title: a.is_pinned ? "Pinned announcement removed" : "Announcement pinned", variant: "success" });
+      toast({
+        title: a.is_pinned ? "Pinned announcement removed" : "Announcement pinned",
+        variant: "success",
+      });
     } catch (error) {
-      toast({ title: "Pin update failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Pin update failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -178,7 +193,9 @@ export function AnnouncementAdminPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">All announcements</h2>
         {isPending && <Skeleton className="h-24 w-full" />}
-        {isError && <ErrorState message="Could not load announcements." onRetry={refetch} />}
+        {isError && (
+          <ErrorState message="Could not load announcements." onRetry={() => void refetch()} />
+        )}
         {data?.length === 0 && (
           <EmptyState title="Nothing published yet" description="Use the form above." />
         )}
@@ -222,12 +239,7 @@ export function AnnouncementAdminPage() {
                   <Pin className="h-4 w-4" />
                 </Button>
                 {a.is_published && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => unpublish(a)}
-                    disabled={busy}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => unpublish(a)} disabled={busy}>
                     Unpublish
                   </Button>
                 )}

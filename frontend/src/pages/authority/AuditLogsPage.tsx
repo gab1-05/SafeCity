@@ -68,7 +68,9 @@ export function AuditLogsPage() {
       </div>
 
       {isPending && <Skeleton className="h-72 w-full" />}
-      {isError && <ErrorState message="Could not load audit logs." onRetry={refetch} />}
+      {isError && (
+        <ErrorState message="Could not load audit logs." onRetry={() => void refetch()} />
+      )}
       {data?.length === 0 && (
         <EmptyState title="No audit entries match" description="Try a broader filter." />
       )}
@@ -90,7 +92,9 @@ export function AuditLogsPage() {
               <tbody>
                 {data.map((entry) => (
                   <tr key={entry.id} className="border-b align-top hover:bg-accent/40">
-                    <td className="whitespace-nowrap p-3 text-xs">{formatDate(entry.created_at)}</td>
+                    <td className="whitespace-nowrap p-3 text-xs">
+                      {formatDate(entry.created_at)}
+                    </td>
                     <td className="p-3 text-xs">{entry.actor ?? "system"}</td>
                     <td className="p-3">
                       <Badge variant="outline">{entry.action}</Badge>

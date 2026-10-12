@@ -29,9 +29,7 @@ export function NotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-sm text-muted-foreground">
-            {data?.unread_count ?? 0} unread
-          </p>
+          <p className="text-sm text-muted-foreground">{data?.unread_count ?? 0} unread</p>
         </div>
         <Button variant="outline" size="sm" onClick={markAll} disabled={!data?.unread_count}>
           <CheckCheck className="h-4 w-4" /> Mark all read
@@ -63,7 +61,10 @@ export function NotificationsPage() {
                 key={n.id}
                 className={`flex items-start gap-3 p-4 ${!n.read_at ? "bg-primary/5" : ""}`}
               >
-                <Bell className={`mt-1 h-4 w-4 shrink-0 ${n.read_at ? "text-muted-foreground" : "text-primary"}`} aria-hidden />
+                <Bell
+                  className={`mt-1 h-4 w-4 shrink-0 ${n.read_at ? "text-muted-foreground" : "text-primary"}`}
+                  aria-hidden
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{n.title}</p>
                   {n.body && <p className="text-sm text-muted-foreground">{n.body}</p>}

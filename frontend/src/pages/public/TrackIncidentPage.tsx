@@ -44,10 +44,7 @@ export function TrackIncidentPage() {
       <p className="mt-2 text-muted-foreground">
         Enter the reference number from your submission (e.g. SC-MUM-2026-000123).
       </p>
-      <form
-        className="mt-6 flex gap-2"
-        onSubmit={handleSubmit}
-      >
+      <form className="mt-6 flex gap-2" onSubmit={handleSubmit}>
         <div className="flex-1 space-y-2">
           <Label htmlFor="reference" className="sr-only">
             Reference number
