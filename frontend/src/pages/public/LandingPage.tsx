@@ -31,12 +31,27 @@ import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_ICONS = [
-  { icon: Construction, label: "Road damage", color: "bg-amber-500", href: "/report?category=road" },
+  {
+    icon: Construction,
+    label: "Road damage",
+    color: "bg-amber-500",
+    href: "/report?category=road",
+  },
   { icon: Droplets, label: "Flooding", color: "bg-blue-500", href: "/report?category=flooding" },
   { icon: Flame, label: "Fire hazard", color: "bg-red-500", href: "/report?category=fire" },
   { icon: Trash2, label: "Garbage", color: "bg-green-500", href: "/report?category=garbage" },
-  { icon: Lightbulb, label: "Streetlights", color: "bg-yellow-500", href: "/report?category=streetlight" },
-  { icon: Building2, label: "Building damage", color: "bg-slate-500", href: "/report?category=building" },
+  {
+    icon: Lightbulb,
+    label: "Streetlights",
+    color: "bg-yellow-500",
+    href: "/report?category=streetlight",
+  },
+  {
+    icon: Building2,
+    label: "Building damage",
+    color: "bg-slate-500",
+    href: "/report?category=building",
+  },
 ];
 
 const FEATURES = [
@@ -48,7 +63,8 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Verified & Routed",
-    description: "Authorities verify reports and route them to the responsible department with SLA deadlines.",
+    description:
+      "Authorities verify reports and route them to the responsible department with SLA deadlines.",
   },
   {
     icon: Clock,
@@ -58,7 +74,8 @@ const FEATURES = [
   {
     icon: Users,
     title: "Community Powered",
-    description: "See nearby reports, upvote issues, and collaborate with neighbors for faster resolution.",
+    description:
+      "See nearby reports, upvote issues, and collaborate with neighbors for faster resolution.",
   },
 ];
 
@@ -111,7 +128,9 @@ function CommunityFeed() {
         </CardHeader>
         <CardContent className="py-8 text-center">
           <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-2 text-muted-foreground">No public incidents yet. Be the first to report!</p>
+          <p className="mt-2 text-muted-foreground">
+            No public incidents yet. Be the first to report!
+          </p>
         </CardContent>
       </Card>
     );
@@ -123,7 +142,9 @@ function CommunityFeed() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base">Recent Community Reports</CardTitle>
-            <CardDescription>Live incidents from your city — {incidents.length} shown</CardDescription>
+            <CardDescription>
+              Live incidents from your city — {incidents.length} shown
+            </CardDescription>
           </div>
           <Link to="/map" className="text-sm text-primary hover:underline">
             View all on map →
@@ -138,8 +159,14 @@ function CommunityFeed() {
               to={`/track?ref=${incident.reference_number}`}
               className="group flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-all"
             >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                style={{ backgroundColor: incident.category ? `hsl(var(--severity-${incident.severity}))` : "hsl(var(--muted))" }}>
+              <div
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                style={{
+                  backgroundColor: incident.category
+                    ? `hsl(var(--severity-${incident.severity}))`
+                    : "hsl(var(--muted))",
+                }}
+              >
                 <SeverityBadge severity={incident.severity} />
               </div>
               <div className="flex-1 min-w-0">
@@ -148,7 +175,8 @@ function CommunityFeed() {
                   <StatusBadge status={incident.status} />
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground truncate">
-                  {incident.category?.name} · {incident.ward_name ?? "Unknown area"} · {timeAgo(incident.created_at)}
+                  {incident.category?.name} · {incident.ward_name ?? "Unknown area"} ·{" "}
+                  {timeAgo(incident.created_at)}
                 </p>
                 <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
@@ -196,12 +224,21 @@ export function LandingPage() {
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link to="/report">
-                <Button size="lg" className="btn-brand w-full sm:w-auto gap-2" rightIcon={<ArrowRight className="h-4 w-4" />}>
+                <Button
+                  size="lg"
+                  className="btn-brand w-full sm:w-auto gap-2"
+                  rightIcon={<ArrowRight className="h-4 w-4" />}
+                >
                   Report an Incident
                 </Button>
               </Link>
               <Link to="/map">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto gap-2" leftIcon={<Map className="h-4 w-4" />}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full sm:w-auto gap-2"
+                  leftIcon={<Map className="h-4 w-4" />}
+                >
                   Explore Live Map
                 </Button>
               </Link>
@@ -248,7 +285,9 @@ export function LandingPage() {
       <section className="section container">
         <div className="mx-auto max-w-3xl text-center mb-12">
           <h2 className="heading-2">What can you report?</h2>
-          <p className="mt-3 text-lead">Choose a category to get started — each report makes your city safer.</p>
+          <p className="mt-3 text-lead">
+            Choose a category to get started — each report makes your city safer.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {CATEGORY_ICONS.map(({ icon: Icon, label, color, href }) => (
@@ -257,7 +296,12 @@ export function LandingPage() {
               to={href}
               className="group card-interactive flex flex-col items-center gap-3 p-5 text-center"
             >
-              <div className={cn("relative flex h-14 w-14 items-center justify-center rounded-xl", color)}>
+              <div
+                className={cn(
+                  "relative flex h-14 w-14 items-center justify-center rounded-xl",
+                  color,
+                )}
+              >
                 <Icon className="h-7 w-7 text-white" aria-hidden />
                 <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/90">
                   <ArrowRight className="h-3 w-3 text-primary" aria-hidden />
@@ -280,7 +324,12 @@ export function LandingPage() {
           </div>
           <div className="grid gap-8 md:grid-cols-3">
             {FEATURES.map((feature, index) => (
-              <Card key={feature.title} variant="elevated" className="relative overflow-hidden animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
+              <Card
+                key={feature.title}
+                variant="elevated"
+                className="relative overflow-hidden animate-slide-up"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
                 <CardHeader className="text-center">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <feature.icon className="h-7 w-7" aria-hidden />
@@ -332,17 +381,27 @@ export function LandingPage() {
               <div className="max-w-2xl">
                 <h2 className="heading-3">Ready to make a difference?</h2>
                 <p className="mt-3 text-lead">
-                  Join thousands of citizens improving their neighborhoods. Report your first issue in under 2 minutes.
+                  Join thousands of citizens improving their neighborhoods. Report your first issue
+                  in under 2 minutes.
                 </p>
               </div>
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link to="/report">
-                  <Button size="lg" className="btn-brand w-full sm:w-auto gap-2" rightIcon={<ArrowRight className="h-4 w-4" />}>
+                  <Button
+                    size="lg"
+                    className="btn-brand w-full sm:w-auto gap-2"
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                  >
                     Report Your First Issue
                   </Button>
                 </Link>
                 <Link to="/map">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto bg-background/50 border-border/50 hover:bg-background" leftIcon={<Map className="h-4 w-4" />}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full sm:w-auto bg-background/50 border-border/50 hover:bg-background"
+                    leftIcon={<Map className="h-4 w-4" />}
+                  >
                     Browse Live Map
                   </Button>
                 </Link>
@@ -363,8 +422,8 @@ export function LandingPage() {
               <CardTitle className="text-danger">Life-threatening emergency?</CardTitle>
               <CardDescription className="mt-2">
                 SafeCity is an incident coordination tool, not an emergency service. For fires,
-                medical emergencies or crimes in progress, always call your local emergency
-                number first (India: 112).
+                medical emergencies or crimes in progress, always call your local emergency number
+                first (India: 112).
               </CardDescription>
             </div>
           </CardContent>

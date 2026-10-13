@@ -209,9 +209,9 @@ export const incidentsApi = {
     const { data } = await client.get(`/incidents/track/${reference}/`);
     return data;
   },
-exportCsv,
-   exportIncidentPdf,
-   exportIncidentCsv,
+  exportCsv,
+  exportIncidentPdf,
+  exportIncidentCsv,
 };
 
 export const referenceDataApi = {

@@ -20,8 +20,7 @@ export function MyIncidentsPage() {
     queryFn: () => incidentsApi.list(filters),
   });
 
-  const update = (patch: Partial<IncidentFilters>) =>
-    setFilters((prev) => ({ ...prev, ...patch }));
+  const update = (patch: Partial<IncidentFilters>) => setFilters((prev) => ({ ...prev, ...patch }));
 
   return (
     <div className="space-y-6">
@@ -64,7 +63,9 @@ export function MyIncidentsPage() {
       </div>
 
       {isPending && <Skeleton className="h-64 w-full" />}
-      {isError && <ErrorState message="Could not load your reports." onRetry={refetch} />}
+      {isError && (
+        <ErrorState message="Could not load your reports." onRetry={() => void refetch()} />
+      )}
 
       {data && data.results.length === 0 && (
         <EmptyState title="No reports found" description="Try clearing filters." />

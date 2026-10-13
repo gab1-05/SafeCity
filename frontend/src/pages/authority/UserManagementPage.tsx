@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { departmentsApi, roleRequestsApi, usersApi, type RoleRequest } from "@/api/auth";
 import client, { normalizeError } from "@/api/client";
 import { useToast } from "@/components/ui/toast";
+import { useAuthStore } from "@/store/auth";
 import type { UserRole } from "@/types";
 
 const ROLE_OPTIONS: UserRole[] = [
@@ -88,6 +89,7 @@ function UserRow({
 }) {
   const [role, setRole] = useState<UserRole>(u.role);
   const [departmentId, setDepartmentId] = useState<string>(u.department?.id ?? "");
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const dirty = role !== u.role || departmentId !== (u.department?.id ?? "");
 
   return (
@@ -153,7 +155,10 @@ function UserRow({
               </option>
             ))}
           </Select>
-          <p className="text-[11px] text-muted-foreground" title={ROLE_PERMISSION_SUMMARY[role].join(" · ")}>
+          <p
+            className="text-[11px] text-muted-foreground"
+            title={ROLE_PERMISSION_SUMMARY[role].join(" · ")}
+          >
             {ROLE_PERMISSION_SUMMARY[role][0]}
           </p>
           {dirty && (
@@ -181,7 +186,7 @@ function UserRow({
         <Button
           size="sm"
           variant={u.is_active === false ? "default" : "outline"}
-          disabled={busy || u.id === "current-user"}
+          disabled={busy || u.id === currentUserId}
           onClick={() => onToggleActive(u.id)}
         >
           {u.is_active === false ? "Activate" : "Deactivate"}
@@ -196,7 +201,15 @@ function UserRow({
   );
 }
 
-function UserTableBody({ users, busy, departments, onUnblockReporting, onToggleActive, onUnlock, onChangeRole }: UserTableBodyProps) {
+function UserTableBody({
+  users,
+  busy,
+  departments,
+  onUnblockReporting,
+  onToggleActive,
+  onUnlock,
+  onChangeRole,
+}: UserTableBodyProps) {
   return (
     <tbody>
       {users.map((u) => (
@@ -238,11 +251,14 @@ function RoleRequestsPanel({
           >
             <div>
               <p className="font-medium">
-                {r.user_name} <span className="font-normal text-muted-foreground">({r.user_email})</span>
+                {r.user_name}{" "}
+                <span className="font-normal text-muted-foreground">({r.user_email})</span>
               </p>
               <p className="text-xs text-muted-foreground">
                 {r.current_role.replace("_", " ")} →{" "}
-                <span className="font-medium text-foreground">{r.requested_role.replace("_", " ")}</span>
+                <span className="font-medium text-foreground">
+                  {r.requested_role.replace("_", " ")}
+                </span>
                 {r.department_name ? ` · ${r.department_name}` : ""}
               </p>
               {r.reason && <p className="mt-1 text-xs italic">“{r.reason}”</p>}
@@ -251,7 +267,12 @@ function RoleRequestsPanel({
               <Button size="sm" disabled={busy} onClick={() => onReview(r.id, "approve")}>
                 Approve
               </Button>
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => onReview(r.id, "reject")}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => onReview(r.id, "reject")}
+              >
                 Reject
               </Button>
             </div>
@@ -276,7 +297,11 @@ export function UserManagementPage() {
       toast({ title: "Account unlocked", variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error) {
-      toast({ title: "Unlock failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Unlock failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -309,7 +334,11 @@ export function UserManagementPage() {
       toast({ title: `Role changed to ${role.replace("_", " ")}`, variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error) {
-      toast({ title: "Change failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Change failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -326,7 +355,11 @@ export function UserManagementPage() {
       refetchRoleRequests();
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error) {
-      toast({ title: "Review failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Review failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -339,7 +372,11 @@ export function UserManagementPage() {
       toast({ title: "User status updated", variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error) {
-      toast({ title: "Update failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Update failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
       setConfirmDeactivate(null);
@@ -353,14 +390,18 @@ export function UserManagementPage() {
       toast({ title: "Reporting access restored", variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error) {
-      toast({ title: "Unblock failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Unblock failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setBusy(false);
     }
   };
 
   const users = data?.results ?? data ?? [];
-  
+
   const filteredUsers = users.filter((u: { role: UserRole }) => u.role === activeTab);
 
   return (
@@ -368,13 +409,18 @@ export function UserManagementPage() {
       <div>
         <h1 className="text-2xl font-bold">User management</h1>
         <p className="text-sm text-muted-foreground">
-          Manage users by role. Change roles, deactivate accounts, and unlock accounts. All changes are audited.
+          Manage users by role. Change roles, deactivate accounts, and unlock accounts. All changes
+          are audited.
         </p>
       </div>
 
       <RoleRequestsPanel requests={roleRequests} busy={busy} onReview={reviewRoleRequest} />
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as RoleGroup)} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as RoleGroup)}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-6">
           {Object.entries(ROLE_GROUPS).map(([role, label]) => (
             <TabsTrigger key={role} value={role as RoleGroup}>
@@ -392,7 +438,9 @@ export function UserManagementPage() {
             </div>
 
             {isPending && <Skeleton className="h-72 w-full" />}
-            {isError && <ErrorState message="Could not load users." onRetry={refetch} />}
+            {isError && (
+              <ErrorState message="Could not load users." onRetry={() => void refetch()} />
+            )}
 
             {Array.isArray(filteredUsers) && filteredUsers.length > 0 && (
               <Card>
@@ -408,24 +456,26 @@ export function UserManagementPage() {
                         <th className="p-3 font-medium">Actions</th>
                       </tr>
                     </thead>
-                      <UserTableBody
-                        users={filteredUsers}
-                        busy={busy}
-                        departments={departments}
-                        onUnblockReporting={unblockReporting}
-                        onToggleActive={toggleActive}
-                        onUnlock={unlockUser}
-                        onChangeRole={changeRole}
-                      />
-                    </table>
-                  </CardContent>
-                </Card>
+                    <UserTableBody
+                      users={filteredUsers}
+                      busy={busy}
+                      departments={departments}
+                      onUnblockReporting={unblockReporting}
+                      onToggleActive={toggleActive}
+                      onUnlock={unlockUser}
+                      onChangeRole={changeRole}
+                    />
+                  </table>
+                </CardContent>
+              </Card>
             )}
 
             {!isPending && !isError && filteredUsers.length === 0 && (
               <Card className="text-center py-8">
                 <CardContent>
-                  <p className="text-muted-foreground">No {ROLE_GROUPS[role as RoleGroup].toLowerCase()} found.</p>
+                  <p className="text-muted-foreground">
+                    No {ROLE_GROUPS[role as RoleGroup].toLowerCase()} found.
+                  </p>
                 </CardContent>
               </Card>
             )}

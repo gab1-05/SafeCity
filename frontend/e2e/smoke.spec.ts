@@ -3,6 +3,10 @@ import { expect, test } from "@playwright/test";
 // Smoke: public pages render, citizen logs in, authority sees the queue.
 // Requires a seeded stack (backend :18081 + `seed_demo_data`).
 
+// Prefer 127.0.0.1 over localhost: on Windows `localhost` may resolve to ::1
+// while Vite listens on IPv4, hanging every goto. Override with E2E_BASE_URL.
+test.use({ baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:5174" });
+
 const CITIZEN = { email: "citizen1@safecity.local", password: "Citizen@12345!" };
 const ADMIN = { email: "admin@safecity.local", password: "Admin@12345!" };
 
@@ -10,7 +14,10 @@ async function login(page, creds: { email: string; password: string }) {
   await page.goto("/login");
   await page.getByLabel(/email/i).fill(creds.email);
   await page.getByLabel(/password/i).fill(creds.password);
-  await page.locator("form").getByRole("button", { name: /log in/i }).click();
+  await page
+    .locator("form")
+    .getByRole("button", { name: /log in/i })
+    .click();
   // Wait for the JWT to land before navigating anywhere.
   await page.waitForFunction(() => localStorage.getItem("safecity.access"), null, {
     timeout: 15_000,

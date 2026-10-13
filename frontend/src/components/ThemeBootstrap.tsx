@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
-import { initializeWebSocket } from "@/services/websocket";
+import { disconnectWebSocket, initializeWebSocket } from "@/services/websocket";
 
 /**
  * Side-effect-only root component: keeps the persisted theme in sync and
@@ -18,6 +18,9 @@ export function ThemeBootstrap() {
   useEffect(() => {
     if (user) {
       initializeWebSocket();
+    } else {
+      // Never leave a stale authenticated socket open after logout.
+      disconnectWebSocket();
     }
   }, [user]);
 

@@ -48,7 +48,10 @@ def _scope_queryset(user):
 
 
 def _parse_range(request):
-    days = int(request.query_params.get("days", 30))
+    try:
+        days = int(request.query_params.get("days", 30))
+    except (TypeError, ValueError):
+        days = 30
     days = max(1, min(days, 365))
     end = timezone.now()
     start = end - timedelta(days=days)

@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CalendarDays, CheckCircle2, Info, Megaphone, Pin, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  Info,
+  Megaphone,
+  Pin,
+  Search,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
@@ -14,26 +22,24 @@ const AUDIENCE_STYLES: Record<string, string> = {
 };
 
 export function AnnouncementsPage() {
-   const [q, setQ] = useState("");
-   const { data, isPending, isError, refetch } = useQuery({
-     queryKey: ["announcements"],
-     queryFn: announcementsApi.list,
-   });
+  const [q, setQ] = useState("");
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: ["announcements"],
+    queryFn: announcementsApi.list,
+  });
 
-   // Filter for published announcements only
-   const publishedAnnouncements = useMemo(() => {
-     if (!data) return [];
-     return data.results.filter((a) => a.is_published);
-   }, [data]);
+  // Filter for published announcements only
+  const publishedAnnouncements = useMemo(() => {
+    if (!data) return [];
+    return data.results.filter((a) => a.is_published);
+  }, [data]);
 
   const filtered = useMemo(() => {
     const source = publishedAnnouncements;
     const needle = q.trim().toLowerCase();
     if (!needle) return source;
     return source.filter(
-      (a) =>
-        a.title.toLowerCase().includes(needle) ||
-        a.body.toLowerCase().includes(needle),
+      (a) => a.title.toLowerCase().includes(needle) || a.body.toLowerCase().includes(needle),
     );
   }, [publishedAnnouncements, q]);
 
@@ -86,21 +92,18 @@ export function AnnouncementsPage() {
 
       <div className="mt-8 space-y-4">
         {isPending && [1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full" />)}
-        {isError && <ErrorState message="Could not load announcements." onRetry={refetch} />}
+        {isError && (
+          <ErrorState message="Could not load announcements." onRetry={() => void refetch()} />
+        )}
         {!isPending && !isError && filtered.length === 0 && (
           <EmptyState
             title={q ? "No announcements match your search" : "No announcements yet"}
-            description={
-              q ? "Try a different keyword." : "Published notices will appear here."
-            }
+            description={q ? "Try a different keyword." : "Published notices will appear here."}
           />
         )}
 
         {[...pinned, ...rest].map((a) => (
-          <Card
-            key={a.id}
-            className={a.is_pinned ? "border-primary/40 bg-primary/[0.03]" : ""}
-          >
+          <Card key={a.id} className={a.is_pinned ? "border-primary/40 bg-primary/[0.03]" : ""}>
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-center gap-2">
                 {a.is_pinned && (

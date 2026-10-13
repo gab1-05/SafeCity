@@ -1,7 +1,19 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, Download, Search, Square, Filter, X, ChevronDown, ChevronUp, MoreHorizontal, UserPlus, Zap } from "lucide-react";
+import {
+  CheckSquare,
+  Download,
+  Search,
+  Square,
+  Filter,
+  X,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+  UserPlus,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +24,14 @@ import { usersApi } from "@/api/auth";
 import { normalizeError } from "@/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/store/auth";
-import { STATUS_LABELS, SEVERITY_LABELS, type Incident, type Severity, type IncidentStatus, type User } from "@/types";
+import {
+  STATUS_LABELS,
+  SEVERITY_LABELS,
+  type Incident,
+  type Severity,
+  type IncidentStatus,
+  type User,
+} from "@/types";
 import { timeAgo } from "@/lib/utils";
 
 function AssignDialog({
@@ -185,7 +204,8 @@ export function IncidentQueuePage() {
 
   const { data: staff, isPending: staffPending } = useQuery({
     queryKey: ["staff"],
-    queryFn: () => usersApi.staff(undefined, ["department_staff", "emergency_responder", "volunteer"]),
+    queryFn: () =>
+      usersApi.staff(undefined, ["department_staff", "emergency_responder", "volunteer"]),
     enabled: assigning !== null,
   });
 
@@ -200,8 +220,10 @@ export function IncidentQueuePage() {
     isAdmin || (user?.role === "department_staff" && incident.status === "under_review");
 
   const visibleIds = data?.results.map((incident) => incident.id) ?? [];
-  const selectedIncidents = data?.results.filter((incident) => selectedIds.includes(incident.id)) ?? [];
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  const selectedIncidents =
+    data?.results.filter((incident) => selectedIds.includes(incident.id)) ?? [];
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   const toggleAllVisible = () => {
     setSelectedIds((current) =>
@@ -226,7 +248,11 @@ export function IncidentQueuePage() {
       });
       queryClient.invalidateQueries({ queryKey: ["queue"] });
     } catch (error) {
-      toast({ title: "Action failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Action failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     }
   };
 
@@ -256,7 +282,9 @@ export function IncidentQueuePage() {
     queryClient.invalidateQueries({ queryKey: ["queue"] });
     toast({
       title: failures.length ? "Bulk action completed with errors" : "Bulk action completed",
-      description: failures.length ? `Failed: ${failures.join(", ")}` : `${candidates.length} incident(s) updated.`,
+      description: failures.length
+        ? `Failed: ${failures.join(", ")}`
+        : `${candidates.length} incident(s) updated.`,
       variant: failures.length ? "error" : "success",
     });
   };
@@ -278,8 +306,12 @@ export function IncidentQueuePage() {
     setSelectedIds((current) => current.filter((id) => !candidates.some((i) => i.id === id)));
     queryClient.invalidateQueries({ queryKey: ["queue"] });
     toast({
-      title: failures.length ? "Auto-assignment completed with errors" : "Auto-assignment completed",
-      description: failures.length ? `Failed: ${failures.join(", ")}` : `${candidates.length} incident(s) assigned.`,
+      title: failures.length
+        ? "Auto-assignment completed with errors"
+        : "Auto-assignment completed",
+      description: failures.length
+        ? `Failed: ${failures.join(", ")}`
+        : `${candidates.length} incident(s) assigned.`,
       variant: failures.length ? "error" : "success",
     });
   };
@@ -290,7 +322,11 @@ export function IncidentQueuePage() {
       toast({ title: "Incident auto-assigned", variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["queue"] });
     } catch (error) {
-      toast({ title: "Assignment failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Assignment failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     }
   };
 
@@ -301,7 +337,11 @@ export function IncidentQueuePage() {
       toast({ title: "Assigned successfully", variant: "success" });
       queryClient.invalidateQueries({ queryKey: ["queue"] });
     } catch (error) {
-      toast({ title: "Assignment failed", description: normalizeError(error).detail, variant: "error" });
+      toast({
+        title: "Assignment failed",
+        description: normalizeError(error).detail,
+        variant: "error",
+      });
     } finally {
       setAssigning(null);
     }
@@ -317,7 +357,11 @@ export function IncidentQueuePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2"
+          >
             <Filter className="h-4 w-4" />
             Filters
             {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -337,7 +381,9 @@ export function IncidentQueuePage() {
           <CardContent className="pt-0">
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="queue-search">Search</label>
+                <label className="text-sm font-medium" htmlFor="queue-search">
+                  Search
+                </label>
                 <div className="flex gap-1">
                   <Input
                     id="queue-search"
@@ -354,12 +400,16 @@ export function IncidentQueuePage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="queue-status">Status</label>
+                <label className="text-sm font-medium" htmlFor="queue-status">
+                  Status
+                </label>
                 <Select
                   id="queue-status"
                   aria-label="Status filter"
                   value={filters.status?.[0] ?? ""}
-                  onChange={(e) => update({ status: e.target.value ? [e.target.value] : undefined })}
+                  onChange={(e) =>
+                    update({ status: e.target.value ? [e.target.value] : undefined })
+                  }
                   className="w-full"
                 >
                   <option value="">All statuses</option>
@@ -371,7 +421,9 @@ export function IncidentQueuePage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="queue-severity">Severity</label>
+                <label className="text-sm font-medium" htmlFor="queue-severity">
+                  Severity
+                </label>
                 <Select
                   id="queue-severity"
                   aria-label="Severity filter"
@@ -388,7 +440,9 @@ export function IncidentQueuePage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="queue-category">Category</label>
+                <label className="text-sm font-medium" htmlFor="queue-category">
+                  Category
+                </label>
                 <Select
                   id="queue-category"
                   aria-label="Category filter"
@@ -407,7 +461,9 @@ export function IncidentQueuePage() {
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="queue-sla">SLA State</label>
+                <label className="text-sm font-medium" htmlFor="queue-sla">
+                  SLA State
+                </label>
                 <Select
                   id="queue-sla"
                   aria-label="SLA filter"
@@ -422,7 +478,9 @@ export function IncidentQueuePage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="queue-review-note">Review Note</label>
+                <label className="text-sm font-medium" htmlFor="queue-review-note">
+                  Review Note
+                </label>
                 <Select
                   id="queue-review-note"
                   aria-label="Review note template"
@@ -431,18 +489,34 @@ export function IncidentQueuePage() {
                   className="w-full"
                 >
                   <option value="Verified after review">Verified after review</option>
-                  <option value="Evidence and location look valid">Evidence and location look valid</option>
-                  <option value="Duplicate or insufficient evidence">Duplicate or insufficient evidence</option>
-                  <option value="Rejected after department review">Rejected after department review</option>
+                  <option value="Evidence and location look valid">
+                    Evidence and location look valid
+                  </option>
+                  <option value="Duplicate or insufficient evidence">
+                    Duplicate or insufficient evidence
+                  </option>
+                  <option value="Rejected after department review">
+                    Rejected after department review
+                  </option>
                 </Select>
               </div>
               <div className="space-y-1.5 md:col-span-2 lg:col-span-2">
                 <label className="text-sm font-medium">Quick Actions</label>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => {
-                    setQ("");
-                    update({ status: undefined, severity: undefined, category: undefined, sla_state: undefined, q: "" });
-                  }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQ("");
+                      update({
+                        status: undefined,
+                        severity: undefined,
+                        category: undefined,
+                        sla_state: undefined,
+                        q: "",
+                      });
+                    }}
+                  >
                     <X className="h-4 w-4" /> Clear All Filters
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => void refetch()}>
@@ -481,10 +555,8 @@ export function IncidentQueuePage() {
       )}
 
       {isPending && <Skeleton className="h-72 w-full" />}
-      {isError && <ErrorState message="Could not load the queue." onRetry={refetch} />}
-      {data?.results.length === 0 && (
-        <EmptyState title="No incidents match these filters" />
-      )}
+      {isError && <ErrorState message="Could not load the queue." onRetry={() => void refetch()} />}
+      {data?.results.length === 0 && <EmptyState title="No incidents match these filters" />}
 
       {data && data.results.length > 0 && (
         <Card>
@@ -493,8 +565,16 @@ export function IncidentQueuePage() {
               <thead>
                 <tr className="border-b bg-muted/50 text-left">
                   <th className="w-10 p-3">
-                    <button type="button" onClick={toggleAllVisible} aria-label="Select all visible incidents">
-                      {allVisibleSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    <button
+                      type="button"
+                      onClick={toggleAllVisible}
+                      aria-label="Select all visible incidents"
+                    >
+                      {allVisibleSelected ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
                     </button>
                   </th>
                   <th className="p-3 font-medium">Reference</th>
@@ -519,7 +599,10 @@ export function IncidentQueuePage() {
                     </td>
                     <td className="p-3 font-mono text-xs">{incident.reference_number}</td>
                     <td className="max-w-64 truncate p-3">
-                      <Link to={`/incidents/${incident.id}`} className="font-medium hover:text-primary">
+                      <Link
+                        to={`/incidents/${incident.id}`}
+                        className="font-medium hover:text-primary"
+                      >
                         {incident.title}
                       </Link>
                       <p className="text-xs text-muted-foreground">{incident.category?.name}</p>
@@ -528,18 +611,27 @@ export function IncidentQueuePage() {
                       <StatusBadge status={incident.status as IncidentStatus} />
                     </td>
                     <td className="p-3">
-                      <SeverityBadge severity={incident.severity as Severity} critical={incident.is_emergency} />
+                      <SeverityBadge
+                        severity={incident.severity as Severity}
+                        critical={incident.is_emergency}
+                      />
                     </td>
                     <td className="p-3 text-xs">
-                      {incident.assigned_staff_name ?? <span className="text-warning">Unassigned</span>}
+                      {incident.assigned_staff_name ?? (
+                        <span className="text-warning">Unassigned</span>
+                      )}
                     </td>
-                    <td className="p-3 text-xs text-muted-foreground">{timeAgo(incident.created_at)}</td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {timeAgo(incident.created_at)}
+                    </td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
                         {canVerify(incident) &&
-                          (incident.status === "submitted" || incident.status === "under_review") && (
+                          (incident.status === "submitted" ||
+                            incident.status === "under_review") && (
                             <>
-                              {user?.role === "department_staff" && incident.status === "submitted" ? (
+                              {user?.role === "department_staff" &&
+                              incident.status === "submitted" ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -569,10 +661,20 @@ export function IncidentQueuePage() {
                           )}
                         {canAssign && !incident.assigned_staff_name && (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => autoAssign(incident)} title="Auto-assign by workload">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => autoAssign(incident)}
+                              title="Auto-assign by workload"
+                            >
                               <Zap className="h-3.5 w-3.5" /> Auto
                             </Button>
-                            <Button size="sm" variant="secondary" onClick={() => setAssigning(incident)} title="Pick a staff member">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setAssigning(incident)}
+                              title="Pick a staff member"
+                            >
                               <UserPlus className="h-3.5 w-3.5" /> Assign
                             </Button>
                           </>

@@ -40,9 +40,9 @@ export function AboutPage() {
           <CardHeader>
             <CardTitle className="text-danger">Not an emergency service</CardTitle>
             <CardDescription>
-              SafeCity coordinates civic incident follow-up. It is not an official government
-              system and does not replace emergency services. For life-threatening situations
-              call 112 (India) or your local emergency number.
+              SafeCity coordinates civic incident follow-up. It is not an official government system
+              and does not replace emergency services. For life-threatening situations call 112
+              (India) or your local emergency number.
             </CardDescription>
           </CardHeader>
         </Card>

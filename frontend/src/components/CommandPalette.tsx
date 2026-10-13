@@ -2,7 +2,11 @@ import { useEffect, useState, useRef } from "react";
 import { Search, Keyboard, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth";
+import { authApi } from "@/api/auth";
+import { challengeStore } from "@/api/client";
+import { wsService } from "@/services/websocket";
 
 interface CommandItem {
   id: string;
@@ -21,31 +25,157 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { user, toggleTheme } = useAuthStore();
+  const queryClient = useQueryClient();
+  const { user, toggleTheme, setUser } = useAuthStore();
+
+  const handleLogout = async () => {
+    // Mirror AppLayout's logout: server-side revoke + full client cleanup.
+    await authApi.logout();
+    challengeStore.clear();
+    wsService.disconnect();
+    setUser(null);
+    queryClient.clear();
+    navigate("/login");
+  };
 
   const commands: CommandItem[] = [
-    { id: "dashboard", label: "Dashboard", description: "Go to your dashboard", shortcut: "⌘1", icon: "🏠", action: () => navigate("/dashboard"), section: "Navigation", keywords: ["home", "main"] },
-    { id: "report", label: "Report Incident", description: "Create a new incident report", shortcut: "⌘N", icon: "➕", action: () => navigate("/report"), section: "Navigation", keywords: ["create", "new", "incident"] },
-    { id: "incidents", label: "My Reports", description: "View your incident reports", shortcut: "⌘2", icon: "📋", action: () => navigate("/incidents"), section: "Navigation", keywords: ["my", "reports", "list"] },
-    { id: "map", label: "Live Map", description: "View incidents on the map", shortcut: "⌘M", icon: "🗺️", action: () => navigate("/map"), section: "Navigation", keywords: ["map", "location"] },
-    { id: "notifications", label: "Notifications", description: "View all notifications", shortcut: "⌘3", icon: "🔔", action: () => navigate("/notifications"), section: "Navigation", keywords: ["alerts", "updates"] },
-    { id: "profile", label: "Profile", description: "Manage your profile", shortcut: "⌘P", icon: "👤", action: () => navigate("/profile"), section: "Navigation", keywords: ["settings", "account"] },
-    { id: "theme", label: "Toggle Theme", description: "Switch between light and dark mode", shortcut: "⌘T", icon: "🌓", action: () => toggleTheme(), section: "Actions", keywords: ["dark", "light", "mode"] },
-    { id: "logout", label: "Log Out", description: "Sign out of your account", shortcut: "⌘L", icon: "🚪", action: () => { localStorage.removeItem("safecity.access"); localStorage.removeItem("safecity.user"); navigate("/login"); }, section: "Actions", keywords: ["signout", "exit"] },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      description: "Go to your dashboard",
+      shortcut: "⌘1",
+      icon: "🏠",
+      action: () => navigate("/dashboard"),
+      section: "Navigation",
+      keywords: ["home", "main"],
+    },
+    {
+      id: "report",
+      label: "Report Incident",
+      description: "Create a new incident report",
+      shortcut: "⌘N",
+      icon: "➕",
+      action: () => navigate("/report"),
+      section: "Navigation",
+      keywords: ["create", "new", "incident"],
+    },
+    {
+      id: "incidents",
+      label: "My Reports",
+      description: "View your incident reports",
+      shortcut: "⌘2",
+      icon: "📋",
+      action: () => navigate("/incidents"),
+      section: "Navigation",
+      keywords: ["my", "reports", "list"],
+    },
+    {
+      id: "map",
+      label: "Live Map",
+      description: "View incidents on the map",
+      shortcut: "⌘M",
+      icon: "🗺️",
+      action: () => navigate("/map"),
+      section: "Navigation",
+      keywords: ["map", "location"],
+    },
+    {
+      id: "notifications",
+      label: "Notifications",
+      description: "View all notifications",
+      shortcut: "⌘3",
+      icon: "🔔",
+      action: () => navigate("/notifications"),
+      section: "Navigation",
+      keywords: ["alerts", "updates"],
+    },
+    {
+      id: "profile",
+      label: "Profile",
+      description: "Manage your profile",
+      shortcut: "⌘P",
+      icon: "👤",
+      action: () => navigate("/profile"),
+      section: "Navigation",
+      keywords: ["settings", "account"],
+    },
+    {
+      id: "theme",
+      label: "Toggle Theme",
+      description: "Switch between light and dark mode",
+      shortcut: "⌘T",
+      icon: "🌓",
+      action: () => toggleTheme(),
+      section: "Actions",
+      keywords: ["dark", "light", "mode"],
+    },
+    {
+      id: "logout",
+      label: "Log Out",
+      description: "Sign out of your account",
+      shortcut: "⌘L",
+      icon: "🚪",
+      action: () => {
+        void handleLogout();
+      },
+      section: "Actions",
+      keywords: ["signout", "exit"],
+    },
   ];
 
-  const roleCanViewAuthority = user?.role === "department_staff" || user?.role === "city_admin" || user?.role === "superuser";
+  const roleCanViewAuthority =
+    user?.role === "department_staff" || user?.role === "city_admin" || user?.role === "superuser";
   const roleCanManageSystem = user?.role === "city_admin" || user?.role === "superuser";
 
-  const authorityCommands: CommandItem[] = roleCanViewAuthority ? [
-    { id: "operations", label: "Operations Dashboard", description: "View operations overview", shortcut: "⌘O", icon: "📊", action: () => navigate("/operations"), section: "Authority", keywords: ["ops", "dashboard"] },
-    { id: "queue", label: "Incident Queue", description: "Manage incident queue", shortcut: "⌘Q", icon: "📥", action: () => navigate("/queue"), section: "Authority", keywords: ["queue", "manage"] },
-  ] : [];
+  const authorityCommands: CommandItem[] = roleCanViewAuthority
+    ? [
+        {
+          id: "operations",
+          label: "Operations Dashboard",
+          description: "View operations overview",
+          shortcut: "⌘O",
+          icon: "📊",
+          action: () => navigate("/operations"),
+          section: "Authority",
+          keywords: ["ops", "dashboard"],
+        },
+        {
+          id: "queue",
+          label: "Incident Queue",
+          description: "Manage incident queue",
+          shortcut: "⌘Q",
+          icon: "📥",
+          action: () => navigate("/queue"),
+          section: "Authority",
+          keywords: ["queue", "manage"],
+        },
+      ]
+    : [];
 
-  const adminCommands: CommandItem[] = roleCanManageSystem ? [
-    { id: "admin", label: "Admin Overview", description: "System administration", shortcut: "⌘A", icon: "⚙️", action: () => navigate("/admin"), section: "Admin", keywords: ["admin", "system"] },
-    { id: "users", label: "User Management", description: "Manage users", shortcut: "⌘U", icon: "👥", action: () => navigate("/admin/users"), section: "Admin", keywords: ["users", "manage"] },
-  ] : [];
+  const adminCommands: CommandItem[] = roleCanManageSystem
+    ? [
+        {
+          id: "admin",
+          label: "Admin Overview",
+          description: "System administration",
+          shortcut: "⌘A",
+          icon: "⚙️",
+          action: () => navigate("/admin"),
+          section: "Admin",
+          keywords: ["admin", "system"],
+        },
+        {
+          id: "users",
+          label: "User Management",
+          description: "Manage users",
+          shortcut: "⌘U",
+          icon: "👥",
+          action: () => navigate("/admin/users"),
+          section: "Admin",
+          keywords: ["users", "manage"],
+        },
+      ]
+    : [];
 
   const allCommands = [...commands, ...authorityCommands, ...adminCommands];
 
@@ -122,17 +252,32 @@ export function CommandPalette() {
   const groupedArray = Array.from(grouped.entries());
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-start justify-center pt-20" role="dialog" aria-modal="true" aria-label="Command palette">
-      <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={() => setOpen(false)} aria-hidden />
-      
+    <div
+      className="fixed inset-0 z-[1000] flex items-start justify-center pt-20"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
+    >
+      <div
+        className="absolute inset-0 bg-black/50 animate-fade-in"
+        onClick={() => setOpen(false)}
+        aria-hidden
+      />
+
       <div className="relative w-full max-w-2xl mx-4 animate-scale-in">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Search
+            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
           <input
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Type a command or search... (⌘K to close)"
             className="w-full h-12 pl-12 pr-4 text-lg bg-card/95 backdrop-blur border border-border rounded-xl shadow-xl placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -164,14 +309,20 @@ export function CommandPalette() {
                         onMouseEnter={() => setSelectedIndex(globalIndex)}
                         className={cn(
                           "w-full px-4 py-3 text-left flex items-center gap-3 transition-colors",
-                          isSelected ? "bg-primary/10 text-primary" : "hover:bg-accent"
+                          isSelected ? "bg-primary/10 text-primary" : "hover:bg-accent",
                         )}
                         style={{ outline: isSelected ? "2px solid hsl(var(--primary))" : "none" }}
                       >
-                        <span className="flex h-8 w-8 items-center justify-center text-lg">{cmd.icon}</span>
+                        <span className="flex h-8 w-8 items-center justify-center text-lg">
+                          {cmd.icon}
+                        </span>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{cmd.label}</div>
-                          {cmd.description && <div className="text-sm text-muted-foreground truncate">{cmd.description}</div>}
+                          {cmd.description && (
+                            <div className="text-sm text-muted-foreground truncate">
+                              {cmd.description}
+                            </div>
+                          )}
                         </div>
                         {cmd.shortcut && (
                           <span className="flex h-6 min-w-[60px] items-center justify-end rounded px-2 text-xs text-muted-foreground font-mono bg-muted">

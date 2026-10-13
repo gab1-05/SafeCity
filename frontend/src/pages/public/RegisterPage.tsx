@@ -84,10 +84,9 @@ export function RegisterPage() {
     });
     toast({
       title: "Account created with Google",
-      description:
-        needsApproval
-          ? "Your role request was submitted for admin approval."
-          : "You can now use SafeCity.",
+      description: needsApproval
+        ? "Your role request was submitted for admin approval."
+        : "You can now use SafeCity.",
       variant: "success",
     });
     navigate("/dashboard");
@@ -152,8 +151,7 @@ export function RegisterPage() {
       const normalized = normalizeError(error);
       toast({
         title: "Registration failed",
-        description:
-          Object.values(normalized.fieldErrors)[0]?.[0] ?? normalized.detail,
+        description: Object.values(normalized.fieldErrors)[0]?.[0] ?? normalized.detail,
         variant: "error",
       });
     } finally {
@@ -161,12 +159,7 @@ export function RegisterPage() {
     }
   };
 
-  const field = (
-    name: keyof FormData,
-    label: string,
-    type = "text",
-    autoComplete?: string,
-  ) => (
+  const field = (name: keyof FormData, label: string, type = "text", autoComplete?: string) => (
     <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
       <Input
@@ -195,7 +188,9 @@ export function RegisterPage() {
           <GoogleSignInButton
             onCredential={onGoogleCredential}
             onUnavailable={() => setOauthUnconfigured(true)}
-            onError={(msg) => toast({ title: "Google sign-up failed", description: msg, variant: "error" })}
+            onError={(msg) =>
+              toast({ title: "Google sign-up failed", description: msg, variant: "error" })
+            }
           />
           {!oauthUnconfigured && (
             <div className="my-4 flex items-center gap-3" aria-hidden>
@@ -215,10 +210,7 @@ export function RegisterPage() {
             {field("confirm", "Confirm password", "password", "new-password")}
             <div className="space-y-2">
               <Label htmlFor="requested_role">I want to join as</Label>
-              <Select
-                id="requested_role"
-                {...register("requested_role")}
-              >
+              <Select id="requested_role" {...register("requested_role")}>
                 {REQUESTABLE_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
                     {r.label}
@@ -227,13 +219,13 @@ export function RegisterPage() {
               </Select>
               {needsApproval ? (
                 <p className="text-xs text-muted-foreground">
-                  Your account is created as citizen immediately. The selected role
-                  needs an administrator's approval.
+                  Your account is created as citizen immediately. The selected role needs an
+                  administrator's approval.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Citizen accounts get instant access. Admins and superusers can only
-                  be assigned by an existing administrator.
+                  Citizen accounts get instant access. Admins and superusers can only be assigned by
+                  an existing administrator.
                 </p>
               )}
               {errors.requested_role && (
@@ -247,10 +239,7 @@ export function RegisterPage() {
                 {requestedRole === "department_staff" && (
                   <div className="space-y-2">
                     <Label htmlFor="requested_department_id">Department</Label>
-                    <Select
-                      id="requested_department_id"
-                      {...register("requested_department_id")}
-                    >
+                    <Select id="requested_department_id" {...register("requested_department_id")}>
                       <option value="">Select a department…</option>
                       {(departments ?? []).map((d) => (
                         <option key={d.id} value={d.id}>
@@ -261,9 +250,7 @@ export function RegisterPage() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="role_request_reason">
-                    Why do you need this role? (optional)
-                  </Label>
+                  <Label htmlFor="role_request_reason">Why do you need this role? (optional)</Label>
                   <Input
                     id="role_request_reason"
                     placeholder="e.g. Volunteer with the local response team"
