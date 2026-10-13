@@ -7,7 +7,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
-FROM nginx:1.29-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 RUN apk upgrade --no-cache
 
