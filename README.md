@@ -618,3 +618,4 @@ MIT — see `LICENSE`.
 - **PostgreSQL** — Relational database with full-text search + JSONB
 - **Redis** — Caching & message broker
 - **Celery** — Distributed task queue
+# SafeCity safety comment
