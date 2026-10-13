@@ -10,8 +10,11 @@ WORKDIR /app
 
 # System deps for psycopg/Pillow builds are minimal with binary wheels.
 # Full upgrade keeps Debian HIGH/CRITICAL OS CVEs (Trivy gate) at zero.
+# "full-upgrade" (aka "dist-upgrade") handles dependency changes better
+# than "upgrade" and is more likely to clear CVEs that apt-get upgrade
+# leaves behind.
 RUN apt-get update \
-    && apt-get upgrade -y \
+    && apt-get full-upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
