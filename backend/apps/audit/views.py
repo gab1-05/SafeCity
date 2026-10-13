@@ -2,7 +2,7 @@
 Audit log API: read-only, admin only, filterable.
 """
 
-from rest_framework import permissions
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,7 +21,13 @@ class AuditLogListView(APIView):
             qs = qs.filter(object_type__iexact=object_type)
         if actor_id := request.query_params.get("actor"):
             qs = qs.filter(actor_id=actor_id)
-        limit = min(int(request.query_params.get("limit", 100)), 500)
+        try:
+            limit = min(int(request.query_params.get("limit", 100)), 500)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "limit must be an integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(
             [
                 {

@@ -126,7 +126,10 @@ export function LoginPage() {
           <CardHeader className="text-center">
             <ShieldCheck className="mx-auto mb-2 h-10 w-10 text-primary" aria-hidden />
             <CardTitle className="text-2xl">Two-factor authentication</CardTitle>
-            <CardDescription>Enter the 6-digit code from your authenticator app</CardDescription>
+            <CardDescription>
+              Code sent for <span className="font-medium text-foreground">{pendingUser.email}</span>{" "}
+              — enter the 6-digit code from your authenticator app
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form
@@ -143,7 +146,11 @@ export function LoginPage() {
                     user: result.user,
                   });
                 } catch (error) {
-                  toast({ title: "Verification failed", description: normalizeError(error).detail, variant: "error" });
+                  toast({
+                    title: "Verification failed",
+                    description: normalizeError(error).detail,
+                    variant: "error",
+                  });
                 } finally {
                   setSubmitting(false);
                 }
@@ -187,7 +194,9 @@ export function LoginPage() {
           <GoogleSignInButton
             onCredential={onGoogleCredential}
             onUnavailable={() => setOauthUnconfigured(true)}
-            onError={(msg) => toast({ title: "Google sign-in failed", description: msg, variant: "error" })}
+            onError={(msg) =>
+              toast({ title: "Google sign-in failed", description: msg, variant: "error" })
+            }
           />
           {!oauthUnconfigured && (
             <div className="my-4 flex items-center gap-3" aria-hidden>

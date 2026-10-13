@@ -96,8 +96,8 @@ export const useAuthStore = create<AuthState>()(
           state.initializeTheme();
         }
       },
-    }
-  )
+    },
+  ),
 );
 
 /** Role gates used by route guards (UX only; backend enforces the truth). */
@@ -107,6 +107,8 @@ export const roleCan = {
   manageSystem: (role?: UserRole) => role === "city_admin" || role === "superuser",
   respondEmergencies: (role?: UserRole) => role === "emergency_responder",
   reportIncidents: (role?: UserRole) =>
-    role === "citizen" || role === "city_admin" || role === "superuser" ||
+    role === "citizen" ||
+    role === "city_admin" ||
+    role === "superuser" ||
     role === "department_staff",
 };

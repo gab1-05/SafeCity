@@ -14,7 +14,8 @@ const badgeVariants = cva(
         danger: "bg-danger/10 text-danger border border-danger/20",
         outline: "border border-border text-foreground hover:bg-accent",
         ghost: "text-muted-foreground hover:bg-accent hover:text-foreground",
-        brand: "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-brand-sm",
+        brand:
+          "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-brand-sm",
       },
       size: {
         sm: "px-2 py-0.5 text-[10px]",
@@ -27,8 +28,7 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {}
+  extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant, size, ...props }, ref) => (

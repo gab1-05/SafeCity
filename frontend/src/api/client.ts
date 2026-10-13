@@ -1,7 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -59,7 +58,7 @@ client.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
-  
+
   // Add CSRF token if available
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
   if (csrfToken) {
@@ -125,13 +124,14 @@ export interface NormalizedError {
 export function normalizeError(error: unknown): NormalizedError {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as
-      | { detail?: string; errors?: Record<string, string[]>; [key: string]: unknown }
-      | undefined;
+      { detail?: string; errors?: Record<string, string[]>; [key: string]: unknown } | undefined;
     const directFieldErrors =
       data && typeof data === "object"
         ? Object.fromEntries(
             Object.entries(data)
-              .filter(([key, value]) => key !== "detail" && key !== "errors" && Array.isArray(value))
+              .filter(
+                ([key, value]) => key !== "detail" && key !== "errors" && Array.isArray(value),
+              )
               .map(([key, value]) => [key, (value as unknown[]).map(String)]),
           )
         : {};

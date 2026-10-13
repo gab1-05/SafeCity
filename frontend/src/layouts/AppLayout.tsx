@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -19,7 +19,6 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth";
@@ -49,9 +48,7 @@ const NAV_BY_ROLE: Record<string, Array<{ to: string; label: string; icon: React
     { to: "/queue", label: "Emergency Queue", icon: <FileWarning className="h-4 w-4" /> },
     { to: "/operations", label: "Operations", icon: <LayoutDashboard className="h-4 w-4" /> },
   ],
-  volunteer: [
-    { to: "/queue", label: "Community Feed", icon: <FileWarning className="h-4 w-4" /> },
-  ],
+  volunteer: [{ to: "/queue", label: "Community Feed", icon: <FileWarning className="h-4 w-4" /> }],
   city_admin: [
     { to: "/admin", label: "Admin Overview", icon: <Gauge className="h-4 w-4" /> },
     { to: "/operations", label: "Operations", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -82,7 +79,11 @@ function ThemeToggle() {
   ];
 
   return (
-    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1" role="group" aria-label="Theme selection">
+    <div
+      className="flex items-center gap-1 bg-muted/50 rounded-lg p-1"
+      role="group"
+      aria-label="Theme selection"
+    >
       {modes.map((mode) => (
         <button
           key={mode.value}
@@ -111,11 +112,13 @@ export function AppLayout() {
   const { toast } = useToast();
 
   const [unreadCount, setUnreadCount] = useState(0);
+  const lastWsInvalidateRef = useRef(0);
 
   const { data: notifications } = useQuery({
     queryKey: ["notifications"],
     queryFn: notificationsApi.list,
     refetchInterval: 30_000,
+    staleTime: 30_000,
   });
 
   useEffect(() => {
@@ -124,10 +127,20 @@ export function AppLayout() {
     }
   }, [notifications?.unread_count]);
 
+  /** WS pushes and the 30s poll both refresh notifications — throttle the WS
+   *  side so a burst of events doesn't refetch on every message. */
+  const invalidateNotificationsSoon = useCallback(() => {
+    const now = Date.now();
+    if (now - lastWsInvalidateRef.current < 5_000) return;
+    lastWsInvalidateRef.current = now;
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  }, [queryClient]);
+
   useEffect(() => {
     const unsubscribe = wsService.on<NotificationPayload>("notification", (payload) => {
-      setUnreadCount((prev) => prev + 1);
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      // Count comes from the server via the ["notifications"] query (synced
+      // above) — never bump locally, which drifts under bursts/reconnects.
+      invalidateNotificationsSoon();
       toast({
         title: payload.title ?? "New notification",
         description: payload.body,
@@ -135,27 +148,39 @@ export function AppLayout() {
       });
     });
 
-    const unsubscribeIncident = wsService.on<IncidentUpdatePayload>("incident_update", (payload) => {
-      queryClient.invalidateQueries({ queryKey: ["incidents"] });
-      queryClient.invalidateQueries({ queryKey: ["incident", payload.id] });
-    });
+    const unsubscribeIncident = wsService.on<IncidentUpdatePayload>(
+      "incident_update",
+      (payload) => {
+        queryClient.invalidateQueries({ queryKey: ["incidents"] });
+        queryClient.invalidateQueries({ queryKey: ["incident", payload.id] });
+      },
+    );
 
     return () => {
       unsubscribe();
       unsubscribeIncident();
     };
-  }, [queryClient, toast]);
+  }, [queryClient, toast, invalidateNotificationsSoon]);
 
   const nav = NAV_BY_ROLE[user?.role ?? "citizen"] ?? NAV_BY_ROLE.citizen;
 
   const handleLogout = async () => {
     await authApi.logout();
+    wsService.disconnect();
     setUser(null);
     queryClient.clear();
     navigate("/login");
   };
 
-  const NavLinkItem = ({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) => {
+  const NavLinkItem = ({
+    to,
+    label,
+    icon,
+  }: {
+    to: string;
+    label: string;
+    icon: React.ReactNode;
+  }) => {
     const active = location.pathname === to || location.pathname.startsWith(`${to}/`);
     return (
       <Link
@@ -239,15 +264,17 @@ export function AppLayout() {
             </Button>
             <div className="hidden md:block">
               <span className="text-sm font-medium text-muted-foreground">
-                {user
-                  ? `${user.full_name} · ${user.role.replace(/_/g, " ")}`
-                  : ""}
+                {user ? `${user.full_name} · ${user.role.replace(/_/g, " ")}` : ""}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <Link to="/notifications" className="relative" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}>
+            <Link
+              to="/notifications"
+              className="relative"
+              aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+            >
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (

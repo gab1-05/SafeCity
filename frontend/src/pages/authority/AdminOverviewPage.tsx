@@ -25,11 +25,11 @@ import { timeAgo } from "@/lib/utils";
 import { STATUS_LABELS, type IncidentStatus } from "@/types";
 
 interface AdminOverview {
-  users: { 
-    total: number; 
-    citizens: number; 
-    staff: number; 
-    locked: number; 
+  users: {
+    total: number;
+    citizens: number;
+    staff: number;
+    locked: number;
     new_this_week: number;
     active_this_week: number;
     with_2fa: number;
@@ -55,7 +55,13 @@ interface AdminOverview {
     actor: string | null;
     created_at: string;
   }>;
-  sla_breaches: Array<{ id: string; reference: string; title: string; department: string; overdue_hours: number }>;
+  sla_breaches: Array<{
+    id: string;
+    reference: string;
+    title: string;
+    department: string;
+    overdue_hours: number;
+  }>;
 }
 
 export function AdminOverviewPage() {
@@ -71,7 +77,7 @@ export function AdminOverviewPage() {
 
   if (isError)
     return (
-      <ErrorState message="Could not load the admin overview." onRetry={refetch} />
+      <ErrorState message="Could not load the admin overview." onRetry={() => void refetch()} />
     );
 
   return (
@@ -79,7 +85,9 @@ export function AdminOverviewPage() {
       <div>
         <h1 className="text-2xl font-bold">Administration overview</h1>
         <p className="text-sm text-muted-foreground">
-          Platform health, people and governance — {user?.role === "superuser" ? "superuser" : "city admin"} view. Auto-refreshes every minute.
+          Platform health, people and governance —{" "}
+          {user?.role === "superuser" ? "superuser" : "city admin"} view. Auto-refreshes every
+          minute.
         </p>
       </div>
 
@@ -175,7 +183,10 @@ export function AdminOverviewPage() {
             ) : (
               <ul className="grid gap-2 sm:grid-cols-2">
                 {data.incidents.status_breakdown.map((row) => (
-                  <li key={row.status} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <li
+                    key={row.status}
+                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                  >
                     <span>{STATUS_LABELS[row.status] ?? row.status}</span>
                     <span className="font-semibold tabular-nums">{row.count}</span>
                   </li>
@@ -211,7 +222,9 @@ export function AdminOverviewPage() {
                         />
                       </div>
                       <span className="w-8 text-right font-medium">{d.open_incidents}</span>
-                      <Badge variant="outline" className="text-xs">{d.staff_count} staff</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {d.staff_count} staff
+                      </Badge>
                     </li>
                   );
                 })}
@@ -279,14 +292,24 @@ export function AdminOverviewPage() {
             ) : (
               <ul className="space-y-2">
                 {data.sla_breaches.map((b) => (
-                  <li key={b.id} className="flex items-center justify-between gap-3 py-2 text-sm border-b last:border-0">
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between gap-3 py-2 text-sm border-b last:border-0"
+                  >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{b.reference} — {b.title}</p>
+                      <p className="truncate font-medium">
+                        {b.reference} — {b.title}
+                      </p>
                       <p className="truncate text-xs text-muted-foreground">{b.department}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="danger">{b.overdue_hours}h overdue</Badge>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.location.href = `/incidents/${b.id}`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => (window.location.href = `/incidents/${b.id}`)}
+                      >
                         <Eye className="h-3 w-3" />
                       </Button>
                     </div>
@@ -362,8 +385,12 @@ export function AdminOverviewPage() {
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => {}}>Approve</Button>
-                      <Button size="sm" variant="ghost" onClick={() => {}}>Reject</Button>
+                      <Button size="sm" variant="outline" onClick={() => {}}>
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => {}}>
+                        Reject
+                      </Button>
                     </div>
                   </li>
                 ))}

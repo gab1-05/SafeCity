@@ -42,7 +42,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               leftIcon ? "pl-10" : "",
               rightIcon ? "pr-10" : "",
               error && "border-danger focus-visible:ring-danger",
-              className
+              className,
             )}
             aria-invalid={!!error}
             aria-describedby={describedBy}
@@ -55,7 +55,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error && (
-          <p id={errorId} className="mt-1.5 flex items-center gap-1.5 text-sm text-danger" role="alert">
+          <p
+            id={errorId}
+            className="mt-1.5 flex items-center gap-1.5 text-sm text-danger"
+            role="alert"
+          >
             <XCircle className="h-3.5 w-3.5" aria-hidden />
             {error}
           </p>
@@ -101,14 +105,18 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             "disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted",
             "aria-invalid:focus-visible:ring-danger aria-invalid:border-danger",
             error && "border-danger focus-visible:ring-danger",
-            className
+            className,
           )}
           aria-invalid={!!error}
           aria-describedby={describedBy}
           {...props}
         />
         {error && (
-          <p id={errorId} className="mt-1.5 flex items-center gap-1.5 text-sm text-danger" role="alert">
+          <p
+            id={errorId}
+            className="mt-1.5 flex items-center gap-1.5 text-sm text-danger"
+            role="alert"
+          >
             <XCircle className="h-3.5 w-3.5" aria-hidden />
             {error}
           </p>
@@ -154,7 +162,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "aria-invalid:focus-visible:ring-danger aria-invalid:border-danger",
             error && "border-danger focus-visible:ring-danger",
-            className
+            className,
           )}
           aria-invalid={!!error}
           aria-describedby={describedBy}
@@ -168,7 +176,11 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           {children}
         </select>
         {error && (
-          <p id={errorId} className="mt-1.5 flex items-center gap-1.5 text-sm text-danger" role="alert">
+          <p
+            id={errorId}
+            className="mt-1.5 flex items-center gap-1.5 text-sm text-danger"
+            role="alert"
+          >
             <XCircle className="h-3.5 w-3.5" aria-hidden />
             {error}
           </p>

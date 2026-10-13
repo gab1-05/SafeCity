@@ -21,7 +21,12 @@ import { timeAgo } from "@/lib/utils";
 export function AuthorityDashboard() {
   const [days, setDays] = useState(30);
 
-  const { data: summary, isPending, isError, refetch } = useQuery({
+  const {
+    data: summary,
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["analytics-summary", days],
     queryFn: () => analyticsApi.summary(days),
     refetchInterval: 60_000,
@@ -40,7 +45,11 @@ export function AuthorityDashboard() {
   const { data: critical } = useQuery({
     queryKey: ["critical-queue"],
     queryFn: () =>
-      incidentsApi.list({ severity: "critical", status: ["submitted", "under_review", "assigned", "in_progress", "escalated"], page_size: 5 }),
+      incidentsApi.list({
+        severity: "critical",
+        status: ["submitted", "under_review", "assigned", "in_progress", "escalated"],
+        page_size: 5,
+      }),
     refetchInterval: 30_000,
   });
 
@@ -49,7 +58,8 @@ export function AuthorityDashboard() {
     queryFn: () => incidentsApi.list({ page_size: 6, ordering: "-created_at" }),
   });
 
-  if (isError) return <ErrorState message="Could not load the dashboard." onRetry={refetch} />;
+  if (isError)
+    return <ErrorState message="Could not load the dashboard." onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-6">
@@ -86,7 +96,9 @@ export function AuthorityDashboard() {
             <StatCard label="Emergency open" value={summary.emergency} tone="danger" />
             <StatCard
               label="Avg response"
-              value={summary.avg_response_minutes !== null ? `${summary.avg_response_minutes}m` : "—"}
+              value={
+                summary.avg_response_minutes !== null ? `${summary.avg_response_minutes}m` : "—"
+              }
               tone="success"
             />
             <StatCard
@@ -143,11 +155,7 @@ export function AuthorityDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trends ?? []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(v: string) => v?.slice(5)}
-                  fontSize={12}
-                />
+                <XAxis dataKey="date" tickFormatter={(v: string) => v?.slice(5)} fontSize={12} />
                 <YAxis fontSize={12} allowDecimals={false} />
                 <ChartTooltip />
                 <Bar dataKey="total" fill="#1b6f8b" radius={[3, 3, 0, 0]} name="Submitted" />

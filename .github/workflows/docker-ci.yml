@@ -55,3 +55,6 @@ jobs:
           format: sarif
           output: trivy-${{ matrix.image }}.sarif
           severity: CRITICAL,HIGH
+          # Fail only on CVEs with a released fix; unfixed-upstream OS
+          # findings cannot be cleared by any rebuild.
+          ignore-unfixed: true

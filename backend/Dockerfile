@@ -8,8 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps for psycopg/Pillow builds are minimal with binary wheels
+# System deps for psycopg/Pillow builds are minimal with binary wheels.
+# Full upgrade keeps Debian HIGH/CRITICAL OS CVEs (Trivy gate) at zero.
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 

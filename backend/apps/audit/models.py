@@ -33,5 +33,16 @@ class AuditLog(UUIDModel):
             models.Index(fields=["object_type", "object_id"], name="idx_audit_object"),
         ]
 
+    def save(self, *args, **kwargs):
+        # Append-only: rows may be created, never updated.
+        if not self._state.adding:
+            raise ValueError("AuditLog entries are immutable and cannot be updated.")
+        if self.pk is not None and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("AuditLog entries are immutable and cannot be updated.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("AuditLog entries cannot be deleted.")
+
     def __str__(self) -> str:
         return f"{self.action} {self.object_type}#{self.object_id} by {self.actor}"

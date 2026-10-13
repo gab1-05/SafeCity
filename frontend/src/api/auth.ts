@@ -75,7 +75,9 @@ export const authApi = {
     tokenStore.set(data.access, data.refresh);
     return data;
   },
-  verify2fa: async (payload: TwoFactorPayload): Promise<{ access: string; refresh: string; user: User }> => {
+  verify2fa: async (
+    payload: TwoFactorPayload,
+  ): Promise<{ access: string; refresh: string; user: User }> => {
     const challenge = challengeStore.token;
     const { data } = await client.post("/auth/token/2fa/", payload, {
       headers: challenge ? { Authorization: `Bearer ${challenge}` } : undefined,
@@ -90,7 +92,11 @@ export const authApi = {
    * on first signup (citizen account + pending admin approval). */
   googleLogin: async (
     idToken: string,
-    roleRequest?: { requested_role?: string; requested_department_id?: string; role_request_reason?: string },
+    roleRequest?: {
+      requested_role?: string;
+      requested_department_id?: string;
+      role_request_reason?: string;
+    },
   ): Promise<{ access: string; refresh: string; user: User }> => {
     const { data } = await client.post("/auth/oauth/google/", {
       id_token: idToken,
@@ -152,7 +158,9 @@ export const authApi = {
     const { data } = await client.post("/auth/2fa/disable/", payload);
     return data;
   },
-  regenerateRecoveryCodes: async (payload: TwoFactorPayload): Promise<TwoFactorRecoveryResponse> => {
+  regenerateRecoveryCodes: async (
+    payload: TwoFactorPayload,
+  ): Promise<TwoFactorRecoveryResponse> => {
     const { data } = await client.post("/auth/2fa/recovery/regenerate/", payload);
     return data;
   },
