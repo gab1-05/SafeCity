@@ -48,7 +48,7 @@ jobs:
           cache-to: type=gha,mode=max
       # Trivy pulls the image by ref, so it can only run where the image was
       # pushed (push events). On PRs the image exists only in the builder.
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.2.0
         if: github.event_name == 'push'
         with:
           image-ref: ${{ env.IMAGE_BASE }}:${{ github.sha }}
