@@ -1,0 +1,9 @@
+# SafeCity security.txt
+# https://securitytxt.org/
+
+Contact: security@safecity.local
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://safecity.example.com/.well-known/security.txt
+Policy: https://safecity.example.com/security-policy
+Acknowledgments: https://safecity.example.com/hall-of-fame
