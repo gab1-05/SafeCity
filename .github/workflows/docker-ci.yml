@@ -48,7 +48,13 @@ jobs:
           cache-to: type=gha,mode=max
       # Trivy pulls the image by ref, so it can only run where the image was
       # pushed (push events). On PRs the image exists only in the builder.
-      - uses: aquasecurity/trivy-action@v0.2.0
+      # Pin needs the "v" prefix (tags are vX.Y.Z). Avoids two failure modes
+      # seen here: v0.2.0 bundles trivy 0.21 which cannot emit SARIF
+      # ("unable to write results: unknown format: sarif"), and v0.28.x
+      # references aquasecurity/setup-trivy@v0.2.1, a tag that no longer
+      # exists ("Unable to resolve action"). v0.36.0 pins a valid
+      # setup-trivy ref (v0.2.6 commit) and emits SARIF.
+      - uses: aquasecurity/trivy-action@v0.36.0
         if: github.event_name == 'push'
         with:
           image-ref: ${{ env.IMAGE_BASE }}:${{ github.sha }}
@@ -58,3 +64,10 @@ jobs:
           # Fail only on CVEs with a released fix; unfixed-upstream OS
           # findings cannot be cleared by any rebuild.
           ignore-unfixed: true
+      # Keep the SARIF report as a build artifact so findings are reviewable.
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: trivy-sarif-${{ matrix.image }}
+          path: trivy-${{ matrix.image }}.sarif
+          if-no-files-found: warn
