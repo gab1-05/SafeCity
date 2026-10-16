@@ -1,37 +1,33 @@
 # SafeCity — Prometheus alert rules
-# Covers the alert signals documented in docs/DEVOPS.md §6 Observability
+# Covers the alert signals documented in docs/DEVOPS.md §6 Observability.
+#
+# Every series referenced here is emitted by GET /api/metrics/ (see
+# backend/apps/core/metrics.py), except `up`, which Prometheus supplies for
+# every scrape target. A backend test (tests/test_metrics.py) fails the build
+# if a rule references a series the endpoint does not emit — rules and code
+# cannot drift apart silently.
 
 groups:
   - name: safecity-availability
     rules:
-      # Readiness endpoint failing (503 = DB/cache/storage degraded)
-      - alert: SafeCityReadinessFailing
-        expr: probe_success{job="safecity-readiness"} == 0
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "SafeCity readiness check failing"
-          description: "The /api/readiness/ endpoint has returned 503 for more than 2 minutes. A dependency (database, cache, or storage) is degraded."
-
-      # Backend down
+      # Backend scrape failing (process down or exposition broken)
       - alert: SafeCityBackendDown
-        expr: up{job="safecity-backend"} == 0
+        expr: up{job="safecity"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: "SafeCity backend is unreachable"
-          description: "Prometheus cannot scrape the backend health endpoint."
+          description: "Prometheus cannot scrape /api/metrics/ on the backend."
 
   - name: safecity-performance
     rules:
       # High 5xx error rate
       - alert: SafeCityHighErrorRate
         expr: |
-          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          sum(rate(safecity_http_requests_total{status="5xx"}[5m]))
           /
-          sum(rate(http_requests_total[5m])) > 0.01
+          sum(rate(safecity_http_requests_total[5m])) > 0.01
         for: 5m
         labels:
           severity: warning
@@ -41,7 +37,7 @@ groups:
 
       # Celery queue backlog growing
       - alert: SafeCityCeleryBacklog
-        expr: redis_queue_depth{queue="celery"} > 100
+        expr: safecity_celery_queue_depth > 100
         for: 15m
         labels:
           severity: warning
@@ -51,19 +47,19 @@ groups:
 
   - name: safecity-business
     rules:
-      # SLA breaches accumulating
+      # SLA breaches accumulating (open incidents past their deadline)
       - alert: SafeCitySlaBreachesAccumulating
-        expr: increase(safecity_sla_breached_total[24h]) > 10
+        expr: delta(safecity_sla_breached_open[24h]) > 10
         for: 1h
         labels:
           severity: warning
         annotations:
           summary: "SLA breaches accumulating"
-          description: "More than 10 SLA breaches in the last 24 hours — review department workload."
+          description: "More than 10 net-new open SLA breaches in the last 24 hours — review department workload."
 
       # Auth failures spike
       - alert: SafeCityAuthFailureSpike
-        expr: increase(safecity_auth_failures_total[15m]) > 50
+        expr: safecity_auth_failures_15m > 50
         for: 5m
         labels:
           severity: warning

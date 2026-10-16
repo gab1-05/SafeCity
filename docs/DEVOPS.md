@@ -365,12 +365,13 @@ a user report → HTTP log line → audit row.
 
 | Signal | Source | Threshold |
 |--------|--------|-----------|
-| Readiness failing | `/api/readiness/` | Any sustained 503 |
-| SLA breaches accumulating | `sla_breached` count | Rising trend over 24 h |
+| Readiness failing | `/api/readiness/` (orchestrator probe) | Any sustained 503 |
+| Prometheus metrics | `/api/metrics/` exposition | Scrape `up == 0` |
+| SLA breaches accumulating | `safecity_sla_breached_open` gauge | Net +10 over 24 h |
 | Escalations unattended | Incident `escalated` with no recent activity | Age > SLA |
-| Celery queue backlog | Redis queue depth | Growing for > 15 min |
-| 5xx rate | Error logs | > 1% of requests |
-| Auth failures | `auth` throttle + lockout counters | Spike above baseline |
+| Celery queue backlog | `safecity_celery_queue_depth` gauge | > 100 for > 15 min |
+| 5xx rate | `safecity_http_requests_total` counter | > 1% of requests |
+| Auth failures | `safecity_auth_failures_15m` gauge (audit log) | > 50 in 15 min |
 
 Readiness alerts should be page-worthy; liveness alerts generally should not.
 
