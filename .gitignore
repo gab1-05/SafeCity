@@ -18,6 +18,7 @@ venv/
 .coverage
 coverage.xml
 htmlcov/
+backend/pytest-junit.xml
 .mypy_cache/
 .ruff_cache/
 backend/media/

@@ -57,4 +57,4 @@ jobs:
       - run: pip install -r requirements/dev.txt
       - run: python -m ruff check .
       - run: python manage.py check
-      - run: python -m pytest -q
+      - run: python -m pytest -q --cov=apps --cov=config --cov-report=term-missing --cov-fail-under=80
