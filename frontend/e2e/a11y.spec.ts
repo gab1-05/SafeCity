@@ -16,6 +16,16 @@ const INTENTIONAL_COLOR_CONTRAST_IDS = new Set([
 
 async function scan(page, path: string) {
   await page.goto(path);
+  // Maps load incident markers asynchronously — wait for them so the audit
+  // covers the real content. Markers are named (title/alt), so a loaded map
+  // and an empty map both pass; only mid-load scanning is a flake.
+  if (await page.locator(".leaflet-container").count()) {
+    await page
+      .locator(".leaflet-marker-icon")
+      .first()
+      .waitFor({ timeout: 10_000 })
+      .catch(() => {});
+  }
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
