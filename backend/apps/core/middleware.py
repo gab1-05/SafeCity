@@ -6,6 +6,8 @@ the response header, and stores it for the logging filter and audit entries.
 import uuid
 from contextvars import ContextVar
 
+from apps.core.metrics import record_request
+
 _request_id_ctx: ContextVar[str] = ContextVar("safecity_request_id", default="-")
 
 
@@ -30,9 +32,7 @@ def _validated_request_id(raw: str | None) -> str:
             except ValueError:
                 pass
             hexpart = candidate.replace("-", "")
-            if len(hexpart) == 32 and all(
-                c in "0123456789abcdefABCDEF" for c in hexpart
-            ):
+            if len(hexpart) == 32 and all(c in "0123456789abcdefABCDEF" for c in hexpart):
                 return candidate
     return uuid.uuid4().hex
 
@@ -52,4 +52,20 @@ class RequestIDMiddleware:
             # Never leak request-id state across requests/tasks sharing a thread
             _request_id_ctx.reset(token)
         response["X-Request-ID"] = request_id
+        return response
+
+
+class MetricsMiddleware:
+    """Count served responses by method + status class for /api/metrics/.
+
+    Counters live in-process (see apps.core.metrics for the limits this
+    implies); the middleware itself never alters the response.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        record_request(request.method, response.status_code)
         return response

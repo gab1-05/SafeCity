@@ -77,6 +77,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # SafeCity structured logging / request-id middleware
     "apps.core.middleware.RequestIDMiddleware",
+    # In-process request counters for /api/metrics/ (no response changes)
+    "apps.core.middleware.MetricsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
