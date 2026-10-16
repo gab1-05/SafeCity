@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-from django.test import override_settings
 
 from apps.core.metrics import record_request, render_exposition, reset_for_tests
 
