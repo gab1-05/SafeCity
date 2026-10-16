@@ -68,5 +68,32 @@ Test Files  3 passed (3)
 
 ## End-to-end — Playwright
 
-Specs exist (`frontend/e2e/`, incl. `a11y.spec.ts`); they require the seeded compose stack.
-Run: `make docker-up && make migrate && make seed && make test-e2e`.
+Command (seeded compose stack + a fresh build of the current source):
+
+```
+cd frontend
+npm run build
+# E2E_BASE_URL=http://127.0.0.1:5174 E2E_NO_SERVER=1
+npx playwright test
+```
+
+Result (local, 2026-10-16):
+
+```
+5 passed (5)
+  smoke: landing/public map render, citizen login + report wizard, admin incident queue
+  a11y:  public pages + citizen dashboard clean under axe (wcag2a/wcag2aa)
+```
+
+### Accessibility bug found and fixed during this pass
+
+The a11y spec flagged **100 Leaflet markers on `/map` carrying `role="button"` with no
+accessible name** (`aria-command-name`) — screen-reader users could not identify incident
+pins. Fixed by giving every marker a `title` + `alt` (accessible name) in `PublicMapPage`,
+`NearbyIncidentsPage` and the `CreateIncidentPage` location pin (re-verified: 100/100
+markers named). The spec now waits for map markers before scanning, making the audit
+deterministic instead of load-timing dependent.
+
+Dependency fix: `@axe-core/playwright` added to `frontend/package.json` — the committed
+`a11y.spec.ts` imported it but the package was missing, which failed the `e2e` workflow at
+collection time.

@@ -71,7 +71,14 @@ function LocationPicker({
       onPick(e.latlng.lat, e.latlng.lng);
     },
   });
-  return position ? <Marker position={position} icon={pinIcon} /> : null;
+  return position ? (
+    <Marker
+      position={position}
+      icon={pinIcon}
+      title="Selected incident location (drag map or pin to adjust)"
+      alt="Selected incident location"
+    />
+  ) : null;
 }
 
 export function CreateIncidentPage() {
