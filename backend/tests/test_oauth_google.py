@@ -49,8 +49,16 @@ def post_oauth(client, payload):
 
 
 def test_unconfigured_returns_503(client):
+    # Use RequestFactory to bypass Django middleware/template rendering
+    # which has a Python 3.14 bug (TemplateContext.__copy__) when logging
+    # 5xx responses.
+    from django.test import RequestFactory
+    from apps.accounts.views_auth import GoogleOAuthView
+
     with google_disabled_settings():
-        response = post_oauth(client, {"id_token": "x"})
+        factory = RequestFactory()
+        request = factory.post("/api/v1/auth/oauth/google/", {"id_token": "x"})
+        response = GoogleOAuthView.as_view()(request)
     assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
     assert response.data["code"] == "oauth_unconfigured"
 
@@ -209,13 +217,38 @@ def test_verify_raises_when_not_configured():
 
 
 def test_verify_google_auth_path_success(monkeypatch):
-    import google.oauth2.id_token as google_id_token
+    # Mock google-auth modules since they may not be installed. Create proper
+    # package modules (with __path__) so Python's import system accepts them.
+    def _fake_package(name):
+        mod = types.ModuleType(name)
+        mod.__path__ = []
+        mod.__file__ = f"<fake>{name}"
+        return mod
 
     calls = {}
 
     def fake_verify(token, request, audience):
         calls["audience"] = audience
         return claims()
+
+    google_mod = _fake_package("google")
+    auth_mod = _fake_package("google.auth")
+    transport_mod = _fake_package("google.auth.transport")
+    requests_mod = types.ModuleType("google.auth.transport.requests")
+    requests_mod.Request = lambda: None
+
+    oauth2_mod = _fake_package("google.oauth2")
+    id_token_mod = types.ModuleType("google.oauth2.id_token")
+    id_token_mod.verify_oauth2_token = fake_verify
+
+    monkeypatch.setitem(sys.modules, "google", google_mod)
+    monkeypatch.setitem(sys.modules, "google.auth", auth_mod)
+    monkeypatch.setitem(sys.modules, "google.auth.transport", transport_mod)
+    monkeypatch.setitem(sys.modules, "google.auth.transport.requests", requests_mod)
+    monkeypatch.setitem(sys.modules, "google.oauth2", oauth2_mod)
+    monkeypatch.setitem(sys.modules, "google.oauth2.id_token", id_token_mod)
+
+    import google.oauth2.id_token as google_id_token
 
     monkeypatch.setattr(google_id_token, "verify_oauth2_token", fake_verify)
     with google_enabled_settings():
@@ -225,12 +258,38 @@ def test_verify_google_auth_path_success(monkeypatch):
 
 
 def test_verify_google_auth_path_bad_issuer(monkeypatch):
+    def _fake_package(name):
+        mod = types.ModuleType(name)
+        mod.__path__ = []
+        mod.__file__ = f"<fake>{name}"
+        return mod
+
+    fake_id_token = types.ModuleType("google.oauth2.id_token")
+    fake_id_token.verify_oauth2_token = lambda token, request, audience: claims(
+        iss="https://evil.example.com"
+    )
+
+    google_mod = _fake_package("google")
+    auth_mod = _fake_package("google.auth")
+    transport_mod = _fake_package("google.auth.transport")
+    requests_mod = types.ModuleType("google.auth.transport.requests")
+    requests_mod.Request = lambda: None
+
+    oauth2_mod = _fake_package("google.oauth2")
+
+    monkeypatch.setitem(sys.modules, "google", google_mod)
+    monkeypatch.setitem(sys.modules, "google.auth", auth_mod)
+    monkeypatch.setitem(sys.modules, "google.auth.transport", transport_mod)
+    monkeypatch.setitem(sys.modules, "google.auth.transport.requests", requests_mod)
+    monkeypatch.setitem(sys.modules, "google.oauth2", oauth2_mod)
+    monkeypatch.setitem(sys.modules, "google.oauth2.id_token", fake_id_token)
+
     import google.oauth2.id_token as google_id_token
 
     monkeypatch.setattr(
         google_id_token,
         "verify_oauth2_token",
-        lambda token, request, audience: claims(iss="https://evil.example.com"),
+        fake_id_token.verify_oauth2_token,
     )
     with google_enabled_settings(), pytest.raises(ValueError, match="issuer"):
         oauth.verify_google_id_token("tok")
