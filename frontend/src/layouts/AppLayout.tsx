@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth";
 import { authApi, notificationsApi } from "@/api/auth";
 import { cn } from "@/lib/utils";
@@ -270,19 +270,20 @@ export function AppLayout() {
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
+            {/* Single <a> styled as an icon button: a <button> nested inside
+                the link is a separate control that the link's aria-label does
+                not name (axe button-name, visible when unreadCount is 0). */}
             <Link
               to="/notifications"
-              className="relative"
+              className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "relative")}
               aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
             >
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-bold text-white">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </Button>
+              <Bell className="h-5 w-5" aria-hidden />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Link>
             <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out">
               <LogOut className="h-5 w-5" />

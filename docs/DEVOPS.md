@@ -241,7 +241,8 @@ Coverage is measured over `apps` and `config`:
 make coverage
 ```
 
-Gate: **backend ≥ 80%**.
+Gate: **backend ≥ 80%** — enforced in `backend-ci.yml` via `--cov-fail-under=80`.
+Current: **82%** (219 tests, 0 failures).
 
 Test settings (`config/settings/test.py`) are designed for determinism and speed:
 
@@ -270,7 +271,10 @@ npm run typecheck     # tsc -b --noEmit
 npm run lint          # eslint, max-warnings 0
 ```
 
-Gate: **frontend ≥ 70% statements on `src/`**.
+Target: **frontend ≥ 70% statements on `src/`** — not yet met (unit-suite coverage is
+≈ 7% of `src`). The unit suite deliberately covers critical flows (auth API, store, badges,
+utils, login page) while full journeys run through the Playwright e2e suite (smoke + a11y).
+Raising unit coverage is tracked as follow-up work; this is recorded as PARTIAL, not PASS.
 
 ### End-to-end
 
@@ -297,22 +301,19 @@ and free of credentials.
 > backend tests (coverage ≥ 80%), frontend tests + typecheck, lint, docker build,
 > trivy scan, terraform fmt/validate (if infra touched).
 
-The workflows that implement this are **not yet authored** — `.github/workflows/` exists
-but is empty. This is the single largest delivery gap; see
-[Known limitations](PROJECT-MANAGEMENT.md#2-known-limitations).
-
-### Intended pipeline
+### Pipeline (as implemented)
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
-| `backend-ci.yml` | PR → `develop`/`main` | Ruff, pytest with PostgreSQL + Redis service containers, coverage ≥ 80% gate |
-| `frontend-ci.yml` | PR | ESLint, `tsc`, Vitest, `vite build` |
-| `docker-ci.yml` | PR / `main` | Build images, Trivy scan failing on HIGH/CRITICAL, push to ECR on `main` via OIDC (no long-lived keys) |
-| `terraform-ci.yml` | PR touching `infrastructure/` | `fmt -check`, `validate`, `plan` for dev as an artifact |
-| `k8s-validate.yml` | PR | `helm lint`, `kubeconform` |
-| `e2e.yml` | nightly + PR label | Compose up, migrate, seed, Playwright |
-| `deploy-staging.yml` | merge to `develop` | Build → push → `helm upgrade` staging |
-| `deploy-production.yml` | tag `v*` | Protected environment with **manual approval**, then `helm upgrade` prod |
+| `backend-ci.yml` | push/PR touching `backend/**` | Ruff, `manage.py check`, pytest with PostgreSQL + Redis service containers, **coverage ≥ 80% gate enforced** (`--cov-fail-under=80`) |
+| `frontend-ci.yml` | push/PR touching `frontend/**` | ESLint, `tsc -b`, Vitest, `vite build` |
+| `docker-ci.yml` | push to `main` / PR touching `backend/**` or `frontend/**` | Builds both images; on `main`: push to GHCR (no AWS needed) + Trivy CRITICAL/HIGH scan retained as a SARIF artifact |
+| `e2e.yml` | push to `main` / PR touching `backend/**` or `frontend/**` | Real backend (Postgres + Redis services) migrated + seeded, built frontend preview, Playwright smoke + a11y |
+| `k8s-validate.yml` | push/PR touching `infrastructure/**` | `helm lint` / `helm template`, kubeconform, terraform `fmt` / `validate` / `plan` per env (plan artifacts; never `apply`) |
+| `deploy.yml` | tag `v*` / manual dispatch | Renders a release-tagged Helm bundle (kind values) as an artifact; **no cloud apply — the path stays $0** |
+
+Scans are informational by design: Trivy reports fixable CRITICAL/HIGH findings into a
+SARIF artifact instead of failing the build, and terraform `plan` never gates merges.
 
 ### Branching model
 

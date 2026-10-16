@@ -42,6 +42,10 @@ jobs:
       DJANGO_SETTINGS_MODULE: config.settings.test
       DB_HOST: localhost
       SECRET_KEY: ci-only-not-a-real-secret-000000000000000000000000
+      # The Playwright browser loads the SPA from http://localhost:5174, but
+      # the base CORS list only covers :5173/:8080 — without this every XHR
+      # from the SPA is blocked and logins time out.
+      CORS_ALLOWED_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
       VITE_API_BASE_URL: http://localhost:18081/api/v1
       VITE_WS_URL: ws://localhost:18081/ws/
     steps:
