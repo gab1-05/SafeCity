@@ -1,0 +1,89 @@
+{
+  "dashboard": {
+    "title": "SafeCity Operations",
+    "description": "Service availability, health, and incident metrics for SafeCity platform",
+    "panels": [
+      {
+        "title": "Service Health",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "probe_success{job=\"safecity-readiness\"}",
+            "legendFormat": "Readiness"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+            ],
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Request Rate",
+        "type": "timeseries",
+        "gridPos": { "x": 6, "y": 0, "w": 9, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m])) by (status)",
+            "legendFormat": "{{status}}"
+          }
+        ]
+      },
+      {
+        "title": "5xx Error Rate",
+        "type": "timeseries",
+        "gridPos": { "x": 15, "y": 0, "w": 9, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+            "legendFormat": "5xx ratio"
+          }
+        ]
+      },
+      {
+        "title": "Celery Queue Depth",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "redis_queue_depth{queue=\"celery\"}",
+            "legendFormat": "celery queue"
+          }
+        ]
+      },
+      {
+        "title": "SLA Breaches (24h)",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "increase(safecity_sla_breached_total[24h])",
+            "legendFormat": "SLA breaches"
+          }
+        ]
+      },
+      {
+        "title": "Auth Failures (15m)",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "increase(safecity_auth_failures_total[15m])",
+            "legendFormat": "Auth failures"
+          }
+        ]
+      }
+    ],
+    "time": { "from": "now-6h", "to": "now" },
+    "refresh": "30s"
+  }
+}

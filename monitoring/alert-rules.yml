@@ -1,0 +1,72 @@
+# SafeCity — Prometheus alert rules
+# Covers the alert signals documented in docs/DEVOPS.md §6 Observability
+
+groups:
+  - name: safecity-availability
+    rules:
+      # Readiness endpoint failing (503 = DB/cache/storage degraded)
+      - alert: SafeCityReadinessFailing
+        expr: probe_success{job="safecity-readiness"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SafeCity readiness check failing"
+          description: "The /api/readiness/ endpoint has returned 503 for more than 2 minutes. A dependency (database, cache, or storage) is degraded."
+
+      # Backend down
+      - alert: SafeCityBackendDown
+        expr: up{job="safecity-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SafeCity backend is unreachable"
+          description: "Prometheus cannot scrape the backend health endpoint."
+
+  - name: safecity-performance
+    rules:
+      # High 5xx error rate
+      - alert: SafeCityHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SafeCity 5xx error rate above 1%"
+          description: "Error rate has exceeded 1% of requests for 5 minutes."
+
+      # Celery queue backlog growing
+      - alert: SafeCityCeleryBacklog
+        expr: redis_queue_depth{queue="celery"} > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue backlog growing"
+          description: "Redis celery queue depth above 100 for 15 minutes — check worker health."
+
+  - name: safecity-business
+    rules:
+      # SLA breaches accumulating
+      - alert: SafeCitySlaBreachesAccumulating
+        expr: increase(safecity_sla_breached_total[24h]) > 10
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLA breaches accumulating"
+          description: "More than 10 SLA breaches in the last 24 hours — review department workload."
+
+      # Auth failures spike
+      - alert: SafeCityAuthFailureSpike
+        expr: increase(safecity_auth_failures_total[15m]) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Auth failure spike"
+          description: "More than 50 failed logins in 15 minutes — possible brute-force attempt."

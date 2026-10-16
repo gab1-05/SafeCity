@@ -1,0 +1,42 @@
+# SafeCity — Prometheus monitoring configuration
+# Addressed DBIT Notice 3 monitoring requirements (F3-F5)
+#
+# Usage:
+#   docker run -d --name prometheus -p 9090:9090 \
+#     -v ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
+#     prom/prometheus
+#
+# With Docker Compose: add the monitoring stack per monitoring/README.md
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: safecity
+
+rule_files:
+  - "alert-rules.yml"
+
+scrape_configs:
+  # Backend health + readiness endpoints
+  - job_name: "safecity-backend"
+    metrics_path: /api/health/
+    static_configs:
+      - targets: ["backend:8000"]
+        labels:
+          service: "backend"
+          environment: "development"
+
+  # Backend readiness (DB, cache, storage checks)
+  - job_name: "safecity-readiness"
+    metrics_path: /api/readiness/
+    static_configs:
+      - targets: ["backend:8000"]
+        labels:
+          service: "readiness"
+          environment: "development"
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
