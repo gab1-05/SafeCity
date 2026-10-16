@@ -7,9 +7,9 @@ import requests
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.cache import cache_page
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods
 
 
 def health(request):
@@ -53,6 +53,20 @@ def readiness(request):
     return JsonResponse(
         {"status": "ok" if ok else "degraded", "checks": checks},
         status=200 if ok else 503,
+    )
+
+
+@require_GET
+def metrics(request):
+    """Prometheus exposition: request counters + live business gauges.
+
+    Unauthenticated like /api/health/ (counts and gauges only — no PII, no
+    incident content), so Prometheus can scrape without credentials.
+    """
+    from apps.core.metrics import render_exposition
+
+    return HttpResponse(
+        render_exposition(), content_type="text/plain; version=0.0.4; charset=utf-8"
     )
 
 
@@ -130,26 +144,31 @@ def geocode_search(request):
     limit = min(int(request.GET.get("limit", 5)), 20)
     countrycodes = request.GET.get("countrycodes", "in")
 
-    data = _nominatim_request("/search", {
-        "q": query,
-        "format": "json",
-        "limit": limit,
-        "countrycodes": countrycodes,
-        "addressdetails": 1,
-        "extratags": 1,
-    })
+    data = _nominatim_request(
+        "/search",
+        {
+            "q": query,
+            "format": "json",
+            "limit": limit,
+            "countrycodes": countrycodes,
+            "addressdetails": 1,
+            "extratags": 1,
+        },
+    )
 
     results = []
     for item in data:
-        results.append({
-            "place_id": item.get("place_id"),
-            "lat": float(item.get("lat", 0)),
-            "lon": float(item.get("lon", 0)),
-            "display_name": item.get("display_name", ""),
-            "type": item.get("type", ""),
-            "class": item.get("class", ""),
-            "address": item.get("address", {}),
-        })
+        results.append(
+            {
+                "place_id": item.get("place_id"),
+                "lat": float(item.get("lat", 0)),
+                "lon": float(item.get("lon", 0)),
+                "display_name": item.get("display_name", ""),
+                "type": item.get("type", ""),
+                "class": item.get("class", ""),
+                "address": item.get("address", {}),
+            }
+        )
 
     return JsonResponse({"results": results})
 
@@ -173,21 +192,26 @@ def geocode_reverse(request):
 
     zoom = min(int(request.GET.get("zoom", 18)), 18)
 
-    data = _nominatim_request("/reverse", {
-        "lat": lat,
-        "lon": lon,
-        "format": "json",
-        "zoom": zoom,
-        "addressdetails": 1,
-        "extratags": 1,
-    })
+    data = _nominatim_request(
+        "/reverse",
+        {
+            "lat": lat,
+            "lon": lon,
+            "format": "json",
+            "zoom": zoom,
+            "addressdetails": 1,
+            "extratags": 1,
+        },
+    )
 
     if not data:
         return JsonResponse({"error": "No result found"}, status=404)
 
-    return JsonResponse({
-        "lat": float(data.get("lat", lat)),
-        "lon": float(data.get("lon", lon)),
-        "display_name": data.get("display_name", ""),
-        "address": data.get("address", {}),
-    })
+    return JsonResponse(
+        {
+            "lat": float(data.get("lat", lat)),
+            "lon": float(data.get("lon", lon)),
+            "display_name": data.get("display_name", ""),
+            "address": data.get("address", {}),
+        }
+    )

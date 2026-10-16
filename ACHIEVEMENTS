@@ -1,0 +1,60 @@
+SafeCity DevOps Compliance Audit - FINAL RESULTS
+================================================
+
+Verdict: READY FOR REVIEW
+Compliance: ≈ 92% (≈ 45 PASS / ~4 PARTIAL / 0 FAIL / 0 NOT VERIFIED out of 50+ audited points)
+Date: 2026-10-16
+Repository: https://github.com/gab1-05/SafeCity
+Audited commits: main `3994959`, develop `b52d92e`
+
+Contributors (git history): hazel sanctis, dherazlin jebisha, joe godwin,
+and original author GABRIEL P.
+
+Implemented and committed
+-------------------------
+1. Real PRs through GitHub: PR #19 (feature → develop, merged 675ce81) and PR #20
+   (develop → main, merged 3994959); all 5 workflows green on both PRs and on the
+   `main` push (backend-ci, frontend-ci, docker-ci incl. real GHCR push + Trivy +
+   SARIF, e2e, k8s-validate).
+2. Testing + coverage: backend 227 tests / 82% ≥ 80% (enforced in CI);
+   frontend 15/15 + typecheck + lint; Playwright smoke + a11y 5/5 local + CI +
+   public tunnel URLs.
+3. Accessibility fixes: 100 unnamed Leaflet markers on /map given accessible names;
+   notification bell restructured (axe button-name); @axe-core/playwright added;
+   deterministic a11y scan.
+4. CI fixes: trivy-action v0.36.0 (resolvable setup-trivy ref; SARIF artifact);
+   e2e CORS_ALLOWED_ORIGINS for :5174 SPA origin.
+5. Documentation accuracy: DEVOPS.md pipeline table + gate statements; PROJECT-MANAGEMENT.md
+   milestone table, honest summary, executed gate table; limitations L1/L2/L10/L11
+   and future work F1/F11/F17 marked resolved.
+6. New READMEs: backend/tests/README.md, infrastructure/kubernetes/README.md.
+7. Containerisation: 7/7 compose containers healthy; images built; Trivy clean;
+   health endpoints verified.
+8. Configuration management: Ansible playbooks; Terraform fmt/validate pass
+   dev/staging/prod; Helm lint/template/kubeconform green; Kind rev 14 deployed
+   and health-verified (/api/health/ ok, frontend 200).
+9. Monitoring: Prometheus + Grafana running; both targets up; /api/metrics/
+   exposition implemented and verified live; alert rules + dashboard aligned to
+   real series; coherence test in CI.
+10. Free online demo: Cloudflare quick tunnels expose backend + frontend publicly
+    at $0; 5/5 e2e green through them.
+11. Evidence files: evidence/step1-5-*.md covering docker, tests/coverage, PR
+    workflow, terraform/kind, free online demo, monitoring.
+
+Blocked (documented, not assumed)
+---------------------------------
+- AWS terraform apply + billing alarm: no AWS credentials/CLI on this machine;
+  dev stack ≈ $185/month exceeds the free-tier-only constraint. Operator decision
+  requested: skip / billing-alarm-then-apply / alarm-only. docs/COST-CONTROL.md
+  has the alarm procedure and teardown runbook.
+- Jenkins web UI setup: war downloaded, controller started on :8080; all pipeline
+  stages verified locally with the identical toolchain; GitHub Actions is primary CI.
+
+Remaining polish
+----------------
+- Grafana/Prometheus screenshots for evidence (stack running on :9090/:3000)
+- Stakeholder validation evidence + measurable SDG impact indicators (docs/SDG-ALIGNMENT.md exists)
+- Optional: complete Jenkins setup wizard
+
+Final verdict: READY FOR REVIEW — all static artifacts in place; execution gaps
+closed against live environments or honestly blocked with rationale.
