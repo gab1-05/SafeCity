@@ -27,6 +27,18 @@ def safecity_exception_handler(exc, context):
 
     response = drf_exception_handler(exc, context)
 
+    # Log authentication failures to the audit log so metrics can track them.
+    if isinstance(exc, exceptions.AuthenticationFailed):
+        request = context.get("request")
+        if request is not None:
+            from apps.audit.services import log_action
+
+            log_action(
+                actor=None,
+                action="auth.login_failed",
+                request=request,
+            )
+
     if response is None:
         logger.exception("Unhandled API exception", extra={"view": str(context.get("view"))})
         return Response(
