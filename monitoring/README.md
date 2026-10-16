@@ -23,14 +23,16 @@ docker compose -f docker-compose.monitoring.yml up -d
 
 ## What is monitored
 
-| Signal | Source | Alert threshold | Severity |
-|--------|--------|-----------------|----------|
-| Readiness failing | `/api/readiness/` | Any sustained 503 > 2m | critical |
-| Backend unreachable | `/api/health/` scrape | `up == 0` > 1m | critical |
-| 5xx error rate | Request metrics | > 1% of requests > 5m | warning |
-| Celery queue backlog | Redis queue depth | > 100 for 15m | warning |
-| SLA breaches | `safecity_sla_breached_total` | > 10 in 24h | warning |
-| Auth failure spike | `safecity_auth_failures_total` | > 50 in 15m | warning |
+| Signal | Source (`/api/metrics/`) | Alert threshold | Severity |
+|--------|---------------------------|-----------------|----------|
+| Backend unreachable | scrape target `up{job="safecity"}` | `== 0` > 1m | critical |
+| 5xx error rate | `safecity_http_requests_total` | > 1% of requests > 5m | warning |
+| Celery queue backlog | `safecity_celery_queue_depth` (Redis LLEN) | > 100 for 15m | warning |
+| SLA breaches accumulating | `safecity_sla_breached_open` gauge | net +10 in 24h | warning |
+| Auth failure spike | `safecity_auth_failures_15m` gauge (audit log) | > 50 in 15m | warning |
+
+`/api/readiness/` stays the orchestrator probe (kubelet/compose healthcheck), not a
+Prometheus scrape target — it returns JSON, and Prometheus needs text exposition.
 
 This mirrors the "What to alert on" table in `docs/DEVOPS.md` §6.
 
