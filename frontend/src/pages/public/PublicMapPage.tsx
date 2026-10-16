@@ -314,6 +314,10 @@ export function PublicMapPage() {
               key={incident.id}
               position={[Number(incident.latitude), Number(incident.longitude)]}
               icon={pinIcon(incident.category?.slug, incident.severity, incident.id === activeId)}
+              // Leaflet gives interactive markers role="button" — without a
+              // name they are flagged by screen readers/axe (aria-command-name).
+              title={`Incident ${incident.reference_number}: ${incident.title}`}
+              alt={`Incident ${incident.reference_number}: ${incident.title}`}
               eventHandlers={{ click: () => setActiveId(incident.id) }}
             >
               <Popup>
