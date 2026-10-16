@@ -53,6 +53,7 @@ def test_unconfigured_returns_503(client):
     # which has a Python 3.14 bug (TemplateContext.__copy__) when logging
     # 5xx responses.
     from django.test import RequestFactory
+
     from apps.accounts.views_auth import GoogleOAuthView
 
     with google_disabled_settings():
