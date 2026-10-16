@@ -6,6 +6,11 @@ const isDocker = process.env.DOCKER === "true";
 const apiTarget = isDocker ? "http://backend:8000" : "http://localhost:18081";
 const wsTarget = isDocker ? "ws://backend:8000" : "ws://localhost:18081";
 
+// Default for the %VITE_CSP_EXTRA% placeholder in index.html (extra connect-src
+// origins for non-localhost deployments). Empty keeps local/CI builds unchanged;
+// real deployments export the variable (see docker-compose.tunnel.yml).
+process.env.VITE_CSP_EXTRA ??= "";
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
