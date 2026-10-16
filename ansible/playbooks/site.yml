@@ -1,0 +1,22 @@
+---
+- name: SafeCity full environment setup
+  hosts: all
+  gather_facts: no
+  roles:
+    - install-postgres
+    - install-redis
+    - install-app
+
+- name: SafeCity infrastructure deployment
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Run Terraform init and plan
+      command: "cd infrastructure/terraform/environments/dev && terraform init && terraform plan -out=tfplan.dev"
+      changed_when: false
+      failed_when: false
+
+    - name: Apply Terraform configuration
+      command: "cd infrastructure/terraform/environments/dev && terraform apply -auto-approve tfplan.dev"
+      changed_when: false
+      failed_when: false

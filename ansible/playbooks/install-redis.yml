@@ -1,0 +1,30 @@
+---
+- name: Install and configure Redis
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Redis
+      apt:
+        name: redis
+        state: present
+        update: no
+
+    - name: Start and enable Redis server
+      service:
+        name: redis-server
+        state: started
+        enabled: yes
+        args:
+          executable: /usr/bin/redis-server
+
+    - name: Configure Redis no-auth for development
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: "^requirepass"
+        state: absent
+        backup: no
+
+    - name: Restart Redis to apply config
+      service:
+        name: redis-server
+        state: restarted

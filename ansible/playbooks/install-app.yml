@@ -1,0 +1,32 @@
+---
+- name: Install SafeCity application dependencies
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install system dependencies for Python
+      apt:
+        name: ["python3-pip", "python3-venv", "python3-wheel"]
+        state: present
+        update: no
+
+    - name: Install Node.js and npm for frontend
+      apt:
+        name: ["nodejs", "npm"]
+        state: present
+        update: no
+
+    - name: Verify Python version
+      command: "python3 --version"
+      changed_when: false
+      failed_when: false
+
+    - name: Verify Node.js version
+      command: "node --version"
+      changed_when: false
+      failed_when: false
+
+    - name: Install Python project dependencies
+      pip:
+        name: -r requirements/dev.txt
+        state: present
+        executable: pip3

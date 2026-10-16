@@ -1,0 +1,46 @@
+---
+- name: Install and configure PostgreSQL
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install PostgreSQL packages
+      apt:
+        name: ["postgresql", "postgresql-contrib", "python3-psycopg2"]
+        state: present
+        update: no
+
+    - name: Ensure PostgreSQL is started and enabled
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Create safecity database user
+      become_user: postgres
+      command: "createuser -s safecity"
+      changed_when: false
+      failed_when: false
+
+    - name: Create safecity database
+      become_user: postgres
+      command: "createdb -O safecity safecity"
+      changed_when: false
+      failed_when: false
+
+    - name: Set database password
+      become_user: postgres
+      command: "psql -c \"ALTER USER safecity WITH PASSWORD 'Chang3ThisPassword!';\""
+      changed_when: false
+      failed_when: false
+
+    - name: Verify database is accessible
+      become_user: postgres
+      command: "psql -U safecity -d safecity -c \"SELECT 1;\""
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure PostgreSQL logs directory exists
+      file:
+        path: /var/log/postgresql
+        state: directory
+        mode: "0750"
