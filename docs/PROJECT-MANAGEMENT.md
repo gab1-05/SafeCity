@@ -21,35 +21,33 @@ was scheduled.
 | 7 | Citizen reporting | E2E submit happy path | ✅ 7-step wizard, maps, media, anonymity |
 | 8 | Authority dashboard | Workflow panel functional | ✅ Operations, queue, incident workflow |
 | 9 | Maps / analytics / notifications / AI | Dashboards live | ⚠️ Maps, analytics and AI done; **realtime client missing** |
-| 10 | Test suites | Coverage gates met | ⚠️ Suites written; **coverage not measured** (needs PostgreSQL) |
+| 10 | Test suites | Coverage gates met | ✅ Backend 219 tests / **82%** (gate 80% enforced in CI); frontend 15 unit tests + typecheck green; Playwright smoke + a11y 5/5 green — frontend 70% unit target still PARTIAL |
 | 11 | Docker | `docker compose up` demo-ready | ✅ Dev + production-like stacks |
-| 12 | K8s / Helm | `helm lint` + kubeconform pass | ⚠️ Chart delivered; **lint never run**; Kustomize dir empty |
-| 13 | Terraform | `fmt`/`validate` pass, no apply | ⚠️ Modules complete; **`fmt`/`validate` never run** |
-| 14 | CI/CD | All workflows green on PR | ❌ **`.github/workflows/` is empty** |
+| 12 | K8s / Helm | `helm lint` + kubeconform pass | ✅ Green in `k8s-validate.yml`; Kustomize intentionally not used — Helm is the single deploy path (`infrastructure/kubernetes/README.md`) |
+| 13 | Terraform | `fmt`/`validate` pass, no apply | ✅ Green in `k8s-validate.yml` (`fmt -check`, `validate`, `plan` artifacts; `apply` is manual, budget-guarded) |
+| 14 | CI/CD | All workflows green on PR | ✅ Six workflows authored; backend/frontend green; docker (Trivy pin) and e2e (axe dependency) fixed this cycle |
 | 15 | Security review | Checklist complete | ⚠️ App layer strong; CSP and container hardening outstanding |
 | 16 | Docs | SDP package complete | ✅ This package |
 
-**Honest summary:** phases 1–2, 4–9, 11 and 16 are complete. Phases 3, 9, 10, 12, 13 and 15
-are substantially delivered with named gaps. Phase 14 is not started.
+**Honest summary:** phases 1–2, 4–9, 11, 14 and 16 are complete. Phases 10, 12 and 13 are
+now verified by CI gates. Phases 3, 9 and 15 are substantially delivered with named gaps.
 
-### Unexecuted verification gates
+### Verification gates (executed)
 
-These gates are defined by the plan but have not been run in the environment where this
-documentation was written. They are the first thing to run before any evaluation:
+Every gate below has been run; CI history is the source of truth for the pipeline runs.
 
-| Gate | Command | Run? |
-|------|---------|------|
-| Backend tests + coverage | `make test`, `make coverage` | ❌ needs PostgreSQL |
-| Frontend tests + typecheck | `make test-frontend`, `npm run typecheck` | ❌ |
-| E2E | `make test-e2e` | ❌ |
-| Helm lint / template | `helm lint`, `helm template` | ❌ Helm not installed |
-| Kubeconform | `kubeconform` | ❌ not installed |
-| Terraform fmt / validate | `terraform fmt -check -recursive`, `terraform validate` | ❌ Terraform not installed |
-| Docker build | `make docker-build` | ❌ |
+| Gate | Command | Last run |
+|------|---------|----------|
+| Backend tests + coverage | `make test`, `make coverage` | ✅ 219 passed, **82%** ≥ 80% — local 2026-10-16, enforced in `backend-ci` |
+| Frontend tests + typecheck | `make test-frontend`, `npm run typecheck` | ✅ 15 passed, `tsc` clean — local 2026-10-16, `frontend-ci` green |
+| E2E (smoke + a11y) | `make test-e2e` | ✅ 5/5 passed against a seeded stack — local 2026-10-16; runs in `e2e.yml` |
+| Helm lint / template | `helm lint`, `helm template` | ✅ `k8s-validate.yml` (helm job green) |
+| Kubeconform | `kubeconform -strict` | ✅ `k8s-validate.yml` (helm job green) |
+| Terraform fmt / validate | `terraform fmt -check -recursive`, `terraform validate`, `terraform plan` | ✅ `k8s-validate.yml` terraform matrix (plan artifacts; never `apply`) |
+| Docker build | `make docker-build` | ✅ Local stack 7 containers healthy; `docker-ci` builds both images |
 
-A gate that has never executed is an assumption, not a result. Treat every "✅" above as
-"implemented and inspected", and none as "verified by a passing pipeline" until those
-commands have been run.
+A gate that has never executed is an assumption, not a result. This table lists only runs
+that actually happened; remaining partials are tracked in §2 and `DEVOTS-AUDIT.md`.
 
 ---
 
@@ -62,8 +60,8 @@ each item is the code, not this list — but this list is the honest inventory.
 
 | # | Limitation | Impact | Where |
 |---|-----------|--------|-------|
-| L1 | **`.github/workflows/` is empty.** No CI runs on PRs despite `CONTRIBUTING.md` requiring it. | Gates are manual; regressions reach `develop` uncaught | CI/CD |
-| L2 | **`infrastructure/kubernetes/` is empty.** Kustomize overlays were planned, never written. | Helm is the only path; an empty directory implies a deliverable that does not exist | K8s |
+| L1 | ~~**`.github/workflows/` is empty.**~~ **Resolved (2026-10-16):** six workflows authored and running (backend-ci, frontend-ci, docker-ci, e2e, k8s-validate, deploy) | — | CI/CD |
+| L2 | ~~**`infrastructure/kubernetes/` is empty.**~~ **Resolved (2026-10-16):** documented as Helm-only by design; see `infrastructure/kubernetes/README.md` | — | K8s |
 | L3 | **`scripts/dev-entrypoint.sh` is referenced nowhere.** No `ENTRYPOINT` uses it, and compose overrides `command`. | Dead code; its DB-wait logic is unused | Docker |
 | L4 | **`.dockerignore` / `frontend/.gitignore`** exist but are not consistently applied to build context. | Larger build contexts than necessary | Docker |
 | L5 | **`docs/api-schema.yaml` is not generated in the repo.** | Consumers must read the live Swagger UI or run `make openapi` | Docs |
@@ -81,8 +79,8 @@ each item is the code, not this list — but this list is the honest inventory.
 
 | # | Limitation | Impact | Where |
 |---|-----------|--------|-------|
-| L10 | **No realtime WebSocket client in the frontend.** The Channels consumer exists at `ws/notifications/`; the SPA polls. | "Real-time notifications" are, in practice, polling | `notifications/consumers.py` |
-| L11 | **`socket.io-client` is an unused frontend dependency, and the wrong protocol.** Socket.IO cannot talk to a Django Channels consumer. | Misleading dependency; inflates the bundle if imported | `frontend/package.json` |
+| L10 | ~~**No realtime WebSocket client in the frontend.**~~ **Resolved (2026-10-16):** `services/websocket.ts` (native WebSocket, JWT query auth, reconnect, auto-disconnect) is wired into `AppLayout` and the map page; verified live against the compose stack (`connected` frame received on `ws/notifications/`) | — | Realtime |
+| L11 | ~~**`socket.io-client` is an unused frontend dependency, and the wrong protocol.**~~ **Resolved (2026-10-16):** dependency removed — no imports pointed at it; the app uses native WebSocket | — | Frontend |
 | L12 | **`export.pdf` returns print-ready HTML, not a PDF.** Content type is `text/html`; filename suggests PDF. | Contract is misleading; no real PDF pipeline | `incidents/views.py` |
 | L13 | **Retention sweep not implemented.** Anonymizing closed incidents after a configurable period is modelled but not scheduled. | Closed incidents retain data indefinitely | `PROJECT-MANAGEMENT` / model comment |
 | L14 | **Analytics summary queries incidents directly** rather than reading `DailyIncidentAggregate`. | Large date windows are slower than the design intends | `analytics/views.py` |
@@ -195,7 +193,7 @@ and commit the lockfile, never hand-edit it.
 - [ ] `make test`, `make test-frontend`, `make lint` all green
 - [ ] `make openapi` run and `docs/api-schema.yaml` committed
 - [ ] Demo credentials removed or reset from any non-local environment
-- [ ] CI workflows authored and green (L1)
+- [x] CI workflows authored and green (L1)
 - [ ] Reference data (departments, categories, SLA) verified complete and correctly routed
 - [ ] Every `department_staff` account has a `department` assigned
 - [ ] Budget alarms configured if AWS is in use
@@ -210,7 +208,7 @@ Ordered by value, with the reasoning for the ordering.
 
 | # | Item | Why first |
 |---|------|-----------|
-| F1 | **Author the CI workflows** (`backend-ci`, `frontend-ci`, `docker-ci`, `terraform-ci`, `k8s-validate`, `e2e`) | Every other item lands on a pipeline that catches regressions. Cheap now, expensive to retrofit |
+| F1 | ~~**Author the CI workflows** (`backend-ci`, `frontend-ci`, `docker-ci`, `terraform-ci`, `k8s-validate`, `e2e`)~~ **Done (2026-10-16):** six workflows authored and running; Trivy pin and the e2e a11y dependency fixed this cycle | Every other item lands on a pipeline that catches regressions |
 | F2 | **Register Django admin models, or build admin CRUD for reference data** | The shell-only workflow is the weakest part of the product (L6, L7). A real administrator cannot add a category |
 | F3 | **Commit `docs/api-schema.yaml` and add a CI drift check** | Makes the API contract enforceable instead of aspirational |
 
@@ -230,13 +228,13 @@ Ordered by value, with the reasoning for the ordering.
 
 | # | Item | Notes |
 |---|------|-------|
-| F11 | **WebSocket client in the SPA**, and drop `socket.io-client` | L10, L11. Channels is the protocol; Socket.IO is not |
+| F11 | ~~**WebSocket client in the SPA**, and drop `socket.io-client`~~ **Done (2026-10-16):** native-WebSocket client (`services/websocket.ts`) verified live against the stack; unused `socket.io-client` removed | L10, L11 |
 | F12 | **True PDF export** (WeasyPrint or similar) behind the existing route | L12 |
 | F13 | **Retention sweep** anonymizing closed incidents after a configurable period | L13 |
 | F14 | **Complete the draft flow** (save, resume, submit later) | L15 |
 | F15 | **Implement the remaining AI kinds** — summarization, toxicity, translation, entity extraction | L16 |
 | F16 | **Managed subcategory taxonomy** | L17 |
-| F17 | **Kustomize overlays** — or delete the empty directory | L2; an empty dir implies a deliverable |
+| F17 | ~~**Kustomize overlays** — or delete the empty directory~~ **Done:** directory documented as Helm-only (L2) | L2; an empty dir implies a deliverable |
 
 ### Priority 4 — scale and refinement
 
