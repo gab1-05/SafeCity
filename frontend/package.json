@@ -36,13 +36,13 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.26.1",
     "recharts": "^2.12.7",
-    "socket.io-client": "^4.7.5",
     "sonner": "^2.0.8",
     "tailwind-merge": "^2.5.2",
     "zod": "^3.23.8",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.46.0",
     "@tanstack/react-query-devtools": "^5.103.1",
     "@testing-library/jest-dom": "^6.4.8",
