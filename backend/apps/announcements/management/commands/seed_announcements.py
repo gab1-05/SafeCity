@@ -95,13 +95,15 @@ class Command(BaseCommand):
 
         created = 0
         for ann_data in SAMPLE_ANNOUNCEMENTS:
-            days = ann_data.pop("days_ago")
-            published_at = timezone.now() - timedelta(days=days)
+            # Copy, don't pop: SAMPLE_ANNOUNCEMENTS is a module constant and a
+            # second call to this command in the same process must still work.
+            defaults = {k: v for k, v in ann_data.items() if k != "days_ago"}
+            published_at = timezone.now() - timedelta(days=ann_data["days_ago"])
 
             ann, was_created = Announcement.objects.get_or_create(
                 title=ann_data["title"],
                 defaults={
-                    **ann_data,
+                    **defaults,
                     "published_at": published_at if ann_data["is_published"] else None,
                     "published_by": admin if ann_data["is_published"] else None,
                 }

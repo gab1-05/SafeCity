@@ -38,13 +38,12 @@ def verify_totp_token(secret: str, token: str, window: int = 1) -> bool:
     except Exception:
         return False
 
-    try:
-        token_int = int(token)
-    except ValueError:
+    # A TOTP code is exactly 6 digits — including codes with a leading zero
+    # (e.g. "012345"), which are just as valid as any other 6-digit code.
+    token = str(token).strip()
+    if len(token) != 6 or not token.isdigit():
         return False
-
-    if not (100000 <= token_int <= 999999):
-        return False
+    token_int = int(token)
 
     current_time_step = int(time.time() // 30)
 
