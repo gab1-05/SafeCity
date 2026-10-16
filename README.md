@@ -599,9 +599,50 @@ See `SECURITY.md`. Key points:
 - `docs/DEMO-SCRIPT.md` — Demonstration script
 - `docs/VIVA-QA.md` — Evaluation support
 
----
+### Cloudflare Tunnel (Free Public Access — No Cloud Account)
 
-## License
+Expose your local stack to the public internet at **$0** using Cloudflare quick tunnels:
+
+```powershell
+# Start the local stack first
+docker compose up -d
+
+# In PowerShell window 1 (backend tunnel):
+& "path\to\cloudflared.exe" tunnel --url http://127.0.0.1:18081
+
+# In PowerShell window 2 (frontend tunnel):
+& "C:\path\to\cloudflared.exe" tunnel --url http://127.0.0.1:5176
+```
+
+Each tunnel prints a URL like `https://xxx.trycloudflare.com`. Copy them, then:
+
+```powershell
+# Update backend CORS for frontend origin
+$env:BACKEND_PUBLIC_HOST = "https://<BACKEND_TUNNEL_URL>"
+$env:FRONTEND_PUBLIC_HOST = "https://<FRONTEND_TUNNEL_URL>"
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d backend
+
+# Rebuild frontend with tunnel API URL
+cd frontend
+$env:VITE_API_BASE_URL = "https://<BACKEND_TUNNEL_URL>/api/v1"
+$env:VITE_WS_URL = "wss://<BACKEND_TUNNEL_URL>/ws/"
+$env:VITE_CSP_EXTRA = "https://<BACKEND_TUNNEL_URL> wss://<BACKEND_TUNNEL_URL>"
+npm run build
+npm run preview -- --port 5176 --host 127.0.0.1
+
+# Verify
+curl https://<FRONTEND_TUNNEL_URL>/          # HTTP 200
+curl https://<BACKEND_TUNNEL_URL>/api/health/  # {"status": "ok", ...}
+
+# Run full e2e through public tunnels
+$env:E2E_BASE_URL = "https://<FRONTEND_TUNNEL_URL>"
+$env:E2E_NO_SERVER = "1"
+npx playwright test smoke.spec.ts a11y.spec.ts
+```
+
+> ⚠️ Quick tunnel URLs are **ephemeral** — they change every time you restart `cloudflared`. Keep both tunnel windows open while using the public URLs.
+
+---
 
 MIT — see `LICENSE`.
 
