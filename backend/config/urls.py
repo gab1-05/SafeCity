@@ -13,13 +13,14 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from apps.core.views import health, meta_config, readiness
+from apps.core.views import health, meta_config, metrics, readiness
 from apps.core.views_admin import AdminOverviewView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/readiness/", readiness, name="readiness"),
+    path("api/metrics/", metrics, name="metrics"),
     path("api/meta/config/", meta_config, name="meta-config"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

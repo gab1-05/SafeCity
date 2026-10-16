@@ -1,0 +1,28 @@
+# HELP safecity_http_requests_total HTTP responses served since process start, by method and status class.
+# TYPE safecity_http_requests_total counter
+safecity_http_requests_total{method="GET",status="2xx"} 36
+safecity_http_requests_total{method="POST",status="2xx"} 3
+# HELP safecity_process_uptime_seconds Seconds since this backend process started.
+# TYPE safecity_process_uptime_seconds gauge
+safecity_process_uptime_seconds 86
+# HELP safecity_incidents_by_status Current incidents by workflow status.
+# TYPE safecity_incidents_by_status gauge
+safecity_incidents_by_status{status="assigned"} 11
+safecity_incidents_by_status{status="closed"} 8
+safecity_incidents_by_status{status="escalated"} 7
+safecity_incidents_by_status{status="in_progress"} 6
+safecity_incidents_by_status{status="rejected"} 9
+safecity_incidents_by_status{status="reopened"} 1
+safecity_incidents_by_status{status="resolved"} 3
+safecity_incidents_by_status{status="submitted"} 83
+safecity_incidents_by_status{status="under_review"} 3
+safecity_incidents_by_status{status="verified"} 2
+# HELP safecity_sla_breached_open Open incidents past their SLA deadline.
+# TYPE safecity_sla_breached_open gauge
+safecity_sla_breached_open 116
+# HELP safecity_auth_failures_15m Failed login attempts in the last 15 minutes (audit log).
+# TYPE safecity_auth_failures_15m gauge
+safecity_auth_failures_15m 0
+# HELP safecity_celery_queue_depth Length of the default celery queue in Redis.
+# TYPE safecity_celery_queue_depth gauge
+safecity_celery_queue_depth 0

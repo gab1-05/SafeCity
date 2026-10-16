@@ -9,8 +9,8 @@
         "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
         "targets": [
           {
-            "expr": "probe_success{job=\"safecity-readiness\"}",
-            "legendFormat": "Readiness"
+            "expr": "up{job=\"safecity\"}",
+            "legendFormat": "Backend"
           }
         ],
         "fieldConfig": {
@@ -33,7 +33,7 @@
         "gridPos": { "x": 6, "y": 0, "w": 9, "h": 8 },
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total[5m])) by (status)",
+            "expr": "sum(rate(safecity_http_requests_total[5m])) by (status)",
             "legendFormat": "{{status}}"
           }
         ]
@@ -44,7 +44,7 @@
         "gridPos": { "x": 15, "y": 0, "w": 9, "h": 8 },
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+            "expr": "sum(rate(safecity_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(safecity_http_requests_total[5m]))",
             "legendFormat": "5xx ratio"
           }
         ]
@@ -55,18 +55,18 @@
         "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
         "targets": [
           {
-            "expr": "redis_queue_depth{queue=\"celery\"}",
+            "expr": "safecity_celery_queue_depth",
             "legendFormat": "celery queue"
           }
         ]
       },
       {
-        "title": "SLA Breaches (24h)",
+        "title": "Open SLA Breaches",
         "type": "stat",
         "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
         "targets": [
           {
-            "expr": "increase(safecity_sla_breached_total[24h])",
+            "expr": "safecity_sla_breached_open",
             "legendFormat": "SLA breaches"
           }
         ]
@@ -77,7 +77,7 @@
         "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
         "targets": [
           {
-            "expr": "increase(safecity_auth_failures_total[15m])",
+            "expr": "safecity_auth_failures_15m",
             "legendFormat": "Auth failures"
           }
         ]

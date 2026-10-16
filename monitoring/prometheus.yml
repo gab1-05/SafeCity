@@ -18,22 +18,17 @@ rule_files:
   - "alert-rules.yml"
 
 scrape_configs:
-  # Backend health + readiness endpoints
-  - job_name: "safecity-backend"
-    metrics_path: /api/health/
+  # SafeCity application metrics (Prometheus exposition format).
+  # /api/health/ and /api/readiness/ are deliberately NOT scraped: they return
+  # JSON for the kubelet/compose probes, and Prometheus needs text exposition.
+  # Liveness/readiness stay where they belong (orchestrator probes); alerting
+  # on availability uses the scape target's own `up` series below.
+  - job_name: "safecity"
+    metrics_path: /api/metrics/
     static_configs:
       - targets: ["backend:8000"]
         labels:
           service: "backend"
-          environment: "development"
-
-  # Backend readiness (DB, cache, storage checks)
-  - job_name: "safecity-readiness"
-    metrics_path: /api/readiness/
-    static_configs:
-      - targets: ["backend:8000"]
-        labels:
-          service: "readiness"
           environment: "development"
 
   # Prometheus self-monitoring
