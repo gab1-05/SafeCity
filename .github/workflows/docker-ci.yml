@@ -65,7 +65,7 @@ jobs:
           # findings cannot be cleared by any rebuild.
           ignore-unfixed: true
       # Keep the SARIF report as a build artifact so findings are reviewable.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'push'
         with:
           name: trivy-sarif-${{ matrix.image }}

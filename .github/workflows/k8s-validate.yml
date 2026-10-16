@@ -53,7 +53,7 @@ jobs:
       - run: terraform validate
       # Plan is informational only — never `apply` (EKS/NAT/RDS ≈ $185/mo).
       - run: terraform plan -input=false -no-color -out=tfplan > tfplan.txt || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: terraform-plan-${{ matrix.env }}
           path: infrastructure/terraform/environments/${{ matrix.env }}/tfplan.txt
