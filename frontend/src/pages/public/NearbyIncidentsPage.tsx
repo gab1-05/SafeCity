@@ -100,6 +100,8 @@ function UserLocationMarker({ position }: { position: [number, number] }) {
   return (
     <Marker
       position={position}
+      title="Your location"
+      alt="Your location"
       icon={L.divIcon({
         className: "",
         html: `<div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 0 3px #3b82f6,0 2px 8px rgba(0,0,0,.3)"></div>`,
@@ -385,6 +387,9 @@ export function NearbyIncidentsPage() {
                 key={incident.id}
                 position={[Number(incident.latitude), Number(incident.longitude)]}
                 icon={pinIcon(incident.category?.slug, incident.severity, incident.id === activeId)}
+                // Interactive Leaflet markers get role="button"; give them a name.
+                title={`Incident ${incident.reference_number}: ${incident.title}`}
+                alt={`Incident ${incident.reference_number}: ${incident.title}`}
                 eventHandlers={{ click: () => setActiveId(incident.id) }}
               >
                 <Popup>
