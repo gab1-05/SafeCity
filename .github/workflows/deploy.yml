@@ -1,0 +1,46 @@
+name: deploy
+
+# CD: render a release-tagged manifest bundle after CI passes. Real apply is a
+# local/self-managed step (kind) or a gated environment; this workflow never
+# touches AWS, keeping the whole path $0.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag (defaults to the commit SHA)"
+        required: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://github.com/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: latest
+      - name: Resolve image tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          TAG="${TAG:-${GITHUB_SHA::7}}"
+          echo "IMAGE_TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Helm template with release tag
+        run: >-
+          helm template safecity infrastructure/helm/safecity
+          -f infrastructure/helm/safecity/values-kind.yaml
+          --set secret.secretKey=ci-only --set secret.postgresPassword=ci-only
+          --set backend.image.tag=${{ env.IMAGE_TAG }}
+          --set frontend.image.tag=${{ env.IMAGE_TAG }}
+          > safecity-release.yaml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-manifests-${{ env.IMAGE_TAG }}
+          path: safecity-release.yaml
+      - name: Cluster apply is manual
+        run: |
+          echo "Render verified. Apply locally with:"
+          echo "  helm upgrade --install safecity infrastructure/helm/safecity -f infrastructure/helm/safecity/values-kind.yaml --set backend.image.tag=${{ env.IMAGE_TAG }} --set frontend.image.tag=${{ env.IMAGE_TAG }}"
