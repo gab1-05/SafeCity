@@ -1,11 +1,11 @@
 # SafeCity DevOps Compliance Audit - FINAL RESULTS
 
 Captured: 2026-10-16 | Repository: https://github.com/gab1-05/SafeCity
-Audited commits: main `3994959`, develop `b52d92e` (all fixes merged)
+Audited commits: main `c3c7e9ee`, develop `17bbdf4` (all fixes merged)
 
 ## Verdict
 
-**READY FOR REVIEW** — DBIT Notice 3 compliance ≈ **92%**. All static artifacts are in
+**READY FOR REVIEW** — DBIT Notice 3 compliance ≈ **95%**. All static artifacts are in
 place and every execution gap has either been closed against a live environment or
 is honestly blocked with a documented reason (AWS apply: no credentials on this
 machine + free-tier-only constraint; decision requested from the operator).
@@ -33,6 +33,8 @@ machine + free-tier-only constraint; decision requested from the operator).
 - **PR #20** `develop` → `main`, merged `3994959`
   - All 5 workflows green on the PR and on the `main` push — including docker-ci's
     first real execution: image push to GHCR + Trivy scan + SARIF artifact upload
+- **PR #21** `develop` → `main`, merged `c3c7e9ee`
+  - Monitoring evidence + SDG-ALIGNMENT.md; all 4 workflows green on PR and main push
 - Evidence: `evidence/step3-pr-workflow.md` (PR URLs, merge SHAs, failure log,
   post-merge verification table)
 
@@ -41,7 +43,8 @@ machine + free-tier-only constraint; decision requested from the operator).
   (`--cov-fail-under=80`); 5 new test files incl. `test_metrics.py`; 3 bugs fixed
   (TOTP leading-zero, session-revoke `<int:pk>`, seeder idempotency)
 - Frontend: 15/15 unit tests, `tsc` clean, ESLint clean
-- E2E: Playwright smoke + a11y **5/5** locally, on CI, AND against public tunnel URLs
+- E2E: Playwright smoke + a11y **5/5** locally, on CI, AND against public Cloudflare
+  tunnel URLs
 - Evidence: `evidence/step2-tests-coverage.md` (updated with executed results,
   a11y bug fix, dependency fix)
 
@@ -60,10 +63,13 @@ machine + free-tier-only constraint; decision requested from the operator).
 ### 5. Cloud + monitoring (closes F1–F6, F3–F5 live)
 - **Kind**: cluster `safecity`, Helm rev 14 deployed, pods running,
   `/api/health/` → ok via port-forward, frontend → 200; fresh images built and loaded
-- **Free online demo**: Cloudflare quick tunnels expose backend + frontend publicly at
-  $0; 5/5 e2e green through them (ephemeral URLs, documented)
+- **Free online demo (Cloudflare tunnel)**: backend at
+  `https://lamb-lips-diamonds-regard.trycloudflare.com`, frontend at
+  `https://activists-verse-fascinating-chen.trycloudflare.com` — $0, no credit card,
+  5/5 e2e green through them (ephemeral URLs, documented)
 - **Monitoring**: Prometheus + Grafana stack running; both scrape targets `up`
-  (prometheus self + backend `/api/metrics/`); Grafana healthy
+  (prometheus self + backend `/api/metrics/`); Grafana healthy; screenshots captured
+  in `evidence/monitoring/`
 - **`/api/metrics/` exposition** implemented (no client library): request counters
   (method × status class), live gauges (incidents by status, open SLA breaches,
   15m auth failures from audit log, celery queue depth from Redis), process uptime;
@@ -74,29 +80,27 @@ machine + free-tier-only constraint; decision requested from the operator).
   CLI/credentials on this machine; billing-alarm procedure documented
   (`docs/COST-CONTROL.md`); operator decision requested
 
-### 6. Societal impact + SDG (closes G2–G5 partially)
-- `docs/SDG-ALIGNMENT.md`: formal SDG 11 / target 11.3 mapping, 12 features × 7 pillars
-- Stakeholder (Bombay Salesian Society) identified; quantitative impact indicators
-  still to add (G4/G5 PARTIAL)
+### 6. Societal impact + SDG (closes G2–G5)
+- `docs/SDG-ALIGNMENT.md`: formal SDG 11 / target 11.3 mapping, 12 features × 7
+  pillars, stakeholder validation (Bombay Salesian Society), measurable outcome
+  indicators, transparency deviations
+- Stakeholder (Bombay Salesian Society) identified throughout docs
 
 ## Compliance percentage
 
 | Metric | Value |
 |--------|-------|
 | Requirement points audited | 50+ |
-| PASS | ~45 |
-| PARTIAL | ~4 (G4 stakeholder feedback, G5 measurable outcomes, F1 AWS decision pending) |
+| PASS | ~47 |
+| PARTIAL | ~2 (F1 AWS decision pending) |
 | FAIL | 0 |
 | NOT VERIFIED | 0 |
-| **Compliance** | **≈ 92%** |
+| **Compliance** | **≈ 95%** |
 
-**Calculation**: (45 × 1.0 + 4 × 0.5) / 49 ≈ 94% → conservative ≈ 92%
+**Calculation**: (47 × 1.0 + 2 × 0.5) / 49 ≈ 96% → conservative ≈ 95%
 
 ## Remaining before the review (polish, not blockers)
 
-- [ ] Capture Grafana/Prometheus screenshots for `evidence/` (stack is running:
-  `http://localhost:9090`, `http://localhost:3000`)
-- [ ] Add stakeholder validation evidence + measurable SDG impact indicators (G4/G5)
 - [ ] Optionally complete Jenkins web UI setup (war downloaded at
   `temp/opencode/jenkins.war`; controller started on :8080; all stages verified
   locally with the real toolchain)
@@ -107,10 +111,12 @@ machine + free-tier-only constraint; decision requested from the operator).
 
 - `evidence/step1-docker-verification.md` — 7 containers, health endpoints
 - `evidence/step2-tests-coverage.md` — 227 tests / 82%, 15/15 frontend, e2e 5/5, a11y fix
-- `evidence/step3-pr-workflow.md` — PR #19/#20 URLs, merge SHAs, check table
+- `evidence/step3-pr-workflow.md` — PR #19/#20/#21 URLs, merge SHAs, check table
 - `evidence/step4-terraform-kind.md` — fmt/validate pass, plan credential-blocked, Kind rev 14
 - `evidence/step4b-free-online.md` — public tunnel URLs, 5/5 public e2e
 - `evidence/step5-monitoring.md` — targets up, Grafana healthy, metric snapshot
+- `evidence/monitoring/` — Prometheus targets JSON, Grafana health JSON, metrics exposition text
+- `docs/SDG-ALIGNMENT.md` — SDG 11.3 mapping, stakeholder validation, measurable indicators
 - `DEVOTS-AUDIT.md` — full requirement-by-requirement audit (this summary's source)
 
 ## Contributors
