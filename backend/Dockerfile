@@ -39,5 +39,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://localhost:8000/api/health/ || exit 1
 
-# Daphne serves HTTP + WebSocket (Channels) in one process
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# Run migrations then start Daphne (HTTP + WebSocket in one process)
+CMD sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
