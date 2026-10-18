@@ -1,4 +1,4 @@
-import { tokenStore } from "@/api/client";
+import { tokenStore, API_BASE_URL } from "@/api/client";
 
 type WebSocketMessage = {
   type: string;
@@ -29,7 +29,15 @@ class WebSocketService {
     // headers/subprotocols reliably, so the query param stays. Persist the
     // token so reconnects re-attach it instead of connecting anonymously.
     if (token) this.token = token;
-    const wsUrl = import.meta.env.VITE_WS_URL ?? "ws://localhost:18081/ws/";
+    // Prefer the explicit VITE_WS_URL; otherwise derive it from the API base
+    // so cross-origin deploys (static site + API on another host) connect to
+    // the real backend instead of falling back to localhost.
+    const derived = API_BASE_URL.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+    const wsUrl =
+      import.meta.env.VITE_WS_URL ??
+      (derived.startsWith("http")
+        ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${derived.replace(/^https?:\/\//, "")}/ws/`
+        : "ws://localhost:18081/ws/");
     this.url = this.token ? `${wsUrl}?token=${this.token}` : wsUrl;
     this.isConnecting = true;
     this.shouldReconnect = true;

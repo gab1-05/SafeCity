@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { API_BASE_URL } from "@/api/client";
 
 /**
  * Google Identity Services (GIS) sign-in button.
@@ -40,7 +41,12 @@ let metaConfigPromise: Promise<MetaConfig> | null = null;
 function fetchMetaConfig(): Promise<MetaConfig> {
   if (!metaConfigPromise) {
     // Note: meta config lives at /api/meta/config/, outside the /api/v1/ tree.
-    metaConfigPromise = fetch("/api/meta/config/").then((r) => {
+    // Build the URL from API_BASE_URL so cross-origin deployments (static site
+    // on a different host than the API) still reach the backend: strip the
+    // trailing /v1 from the base and append /meta/config/.
+    const apiRoot = API_BASE_URL.replace(/\/v1\/?$/, "");
+    const url = `${apiRoot}/meta/config/`.replace(/([^:]\/)\/+/g, "$1");
+    metaConfigPromise = fetch(url).then((r) => {
       if (!r.ok) throw new Error("meta config unavailable");
       return r.json() as Promise<MetaConfig>;
     });

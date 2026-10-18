@@ -39,5 +39,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://localhost:8000/api/health/ || exit 1
 
-# Run migrations then start Daphne (HTTP + WebSocket in one process)
-CMD sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+# Run migrations, seed demo data (idempotent), then start Daphne.
+CMD sh -c "python manage.py migrate --noinput && python manage.py seed_demo_data && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
