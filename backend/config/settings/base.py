@@ -113,20 +113,40 @@ DATABASES = {
     }
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_URL", default="redis://localhost:6379/0"),
-    }
-}
+# ── Redis-backed integrations (optional) ─────────────────────
+# An empty REDIS_URL means no Redis is provisioned. Rather than pointing at a
+# localhost socket nothing listens on (which would 500 every rate-limited DRF
+# request), fall back to in-process defaults so the API still runs with zero
+# cloud setup — the same "degrade to a safe local default" contract the other
+# integrations below follow.
+REDIS_URL = env("REDIS_URL", default="").strip()
 
-# ── Channels (realtime) ──────────────────────────────────────
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [env("REDIS_URL", default="redis://localhost:6379/0")]},
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
     }
-}
+
+    # ── Channels (realtime) ──────────────────────────────────────
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
+        }
+    }
+    CELERY_RESULT_BACKEND = REDIS_URL
+else:
+    CACHES = {
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+    }
+
+    # ── Channels (realtime) ──────────────────────────────────────
+    # Single-process deployment (Daphne runs one worker), so the in-memory
+    # layer still broadcasts between consumers in that process.
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+    CELERY_RESULT_BACKEND = None
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -244,9 +264,10 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ── Celery ────────────────────────────────────────────────────
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/1")
-CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://localhost:6379/0")
-CELERY_TASK_ALWAYS_EAGER = False  # overridden in tests
+# The broker is only useful when Redis exists; queueing a task with nothing
+# listening raises on connect, so without Redis tasks run inline instead.
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL or "redis://localhost:6379/1")
+CELERY_TASK_ALWAYS_EAGER = not REDIS_URL  # overridden in tests
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # ── SafeCity application settings ─────────────────────────────

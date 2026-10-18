@@ -3,7 +3,7 @@ Production settings — hardened: HSTS, secure cookies, no debug, strict CORS.
 """
 
 from .base import *
-from .base import env
+from .base import REDIS_URL, env
 
 DEBUG = False
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")  # required, no default
@@ -26,8 +26,10 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = True
 
-# Celery runs as real workers in production
-CELERY_TASK_ALWAYS_EAGER = False
+# Celery runs as real workers in production — but only when a broker is
+# actually provisioned; with no Redis, publishing would raise on connect, so
+# tasks execute inline instead (mirrors the base-settings fallback).
+CELERY_TASK_ALWAYS_EAGER = not REDIS_URL
 
 # Sendfile-compatible static serving is handled by WhiteNoise in the backend image;
 # the SPA is served by nginx in the frontend image.
