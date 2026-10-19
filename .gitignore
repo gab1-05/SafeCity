@@ -54,3 +54,8 @@ celerybeat-schedule
 # ---- Generated presentations ----
 *.pptx
 ~$*
+
+# ---- Local Render DB helpers (contain live credentials, never commit) ----
+show_render_data.py
+explore_render_db.py
+RENDER-DATABASE-GUIDE.md
