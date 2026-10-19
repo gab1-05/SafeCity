@@ -13,6 +13,23 @@ A rehearsable, timed walkthrough for an SDP evaluation. Total: **~15 minutes**
 
 ## Before the audience arrives
 
+**Option A — live deployment (recommended, nothing to start):**
+
+Use the Render deployment — no local stack needed:
+`https://safecity-1-rvk7.onrender.com` (frontend) ·
+`https://safecity-6xje.onrender.com` (backend).
+
+> Free-tier instances spin down after ~15 min idle: the **first** request takes up to ~50 s
+> (a cold start). Hit both URLs a minute before you begin so the instance is warm.
+
+```bash
+curl -s https://safecity-6xje.onrender.com/api/health/       # {"status":"ok",...}
+curl -s https://safecity-6xje.onrender.com/api/readiness/    # database/cache/storage ok
+curl -s https://safecity-6xje.onrender.com/api/meta/config/  # categories present
+```
+
+**Option B — local stack:**
+
 ```bash
 cp .env.example .env
 make docker-up            # wait for healthy
@@ -23,25 +40,27 @@ make seed
 Verify all three, and **do not skip this**:
 
 ```bash
-curl -s http://localhost:8080/api/health/       # {"status":"ok",...}
-curl -s http://localhost:8080/api/readiness/    # database/cache/storage all ok
-curl -s http://localhost:8080/api/meta/config/  # categories present
+curl -s http://localhost:18081/api/health/       # {"status":"ok",...}
+curl -s http://localhost:18081/api/readiness/    # database/cache/storage all ok
+curl -s http://localhost:18081/api/meta/config/  # categories present
 ```
 
-Open and **log in to** these tabs in advance so nothing is typed live:
+Open and **log in to** these tabs in advance so nothing is typed live
+(swap `https://safecity-1-rvk7.onrender.com` / `https://safecity-6xje.onrender.com`
+for the localhost URLs when presenting on the live deployment):
 
 | Tab | URL | Login |
 |-----|-----|-------|
-| 1 | http://localhost:5173 | not logged in |
-| 2 | http://localhost:5173 | `citizen1@safecity.local` / `Citizen@12345!` |
-| 3 | http://localhost:5173/operations | `staff.roads@safecity.local` / `Staff@12345!` |
-| 4 | http://localhost:5173/analytics | `admin@safecity.local` / `Admin@12345!` |
-| 5 | http://localhost:8080/api/schema/swagger/ | — |
-| 6 | http://localhost:8080/api/readiness/ | — |
+| 1 | http://localhost:5174 | not logged in |
+| 2 | http://localhost:5174 | `citizen1@safecity.local` / `Citizen@12345!` |
+| 3 | http://localhost:5174/operations | `staff.roads@safecity.local` / `Staff@12345!` |
+| 4 | http://localhost:5174/analytics | `admin@safecity.local` / `Admin@12345!` |
+| 5 | http://localhost:18081/api/schema/swagger/ | — |
+| 6 | http://localhost:18081/api/readiness/ | — |
 
 Have this file open in a seventh tab for reference.
 
-Seeded data: **8 departments · 16 categories · 9 wards in 3 zones · 13 incidents** spread
+Seeded data: **8 departments · 17 categories · 25 wards in 5 zones · 39 incidents** spread
 across every stage of the lifecycle · 5 staff · 1 responder · 1 volunteer · 5 citizens ·
 3 announcements.
 

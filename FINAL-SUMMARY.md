@@ -1,7 +1,7 @@
 # SafeCity DevOps Compliance Audit - FINAL RESULTS
 
 Captured: 2026-10-16 | Repository: https://github.com/gab1-05/SafeCity
-Audited commits: main `c3c7e9ee`, develop `17bbdf4` (all fixes merged)
+Audited commits: main `1e8ef38`, develop `0989b30` (all fixes merged)
 
 ## Verdict
 
@@ -13,7 +13,7 @@ machine + free-tier-only constraint; decision requested from the operator).
 ## Changes implemented (all committed to `develop` and merged to `main`)
 
 ### 1. CI/CD pipeline — real PRs, all green (closes A4, B2–B4, C5–C6)
-- **PR #19** `fix/ci-green-and-docs` → `develop`, merged `675ce81`
+- **PR #19** `fix/ci-green-and-docs` → `develop`, merged `f70da24`
   - `docker-ci.yml`: trivy-action pinned to resolvable v0.36.0 (v0.28.0 referenced a
     deleted `setup-trivy@v0.2.1` tag; v0.2.0 bundled trivy 0.21 which cannot emit SARIF)
   - `e2e.yml`: added `CORS_ALLOWED_ORIGINS` for the `:5174` SPA origin (login XHRs were
@@ -30,10 +30,10 @@ machine + free-tier-only constraint; decision requested from the operator).
     evidence files committed
   - All 5 workflows green on PR #19: backend-ci, frontend-ci, docker-ci, e2e,
     k8s-validate
-- **PR #20** `develop` → `main`, merged `3994959`
+- **PR #20** `develop` → `main`, merged `99e9d77`
   - All 5 workflows green on the PR and on the `main` push — including docker-ci's
     first real execution: image push to GHCR + Trivy scan + SARIF artifact upload
-- **PR #21** `develop` → `main`, merged `c3c7e9ee`
+- **PR #21** `develop` → `main`, merged `1e8ef38`
   - Monitoring evidence + SDG-ALIGNMENT.md; all 4 workflows green on PR and main push
 - Evidence: `evidence/step3-pr-workflow.md` (PR URLs, merge SHAs, failure log,
   post-merge verification table)
@@ -63,10 +63,13 @@ machine + free-tier-only constraint; decision requested from the operator).
 ### 5. Cloud + monitoring (closes F1–F6, F3–F5 live)
 - **Kind**: cluster `safecity`, Helm rev 14 deployed, pods running,
   `/api/health/` → ok via port-forward, frontend → 200; fresh images built and loaded
-- **Free online demo (Cloudflare tunnel)**: backend at
-  `https://lamb-lips-diamonds-regard.trycloudflare.com`, frontend at
-  `https://activists-verse-fascinating-chen.trycloudflare.com` — $0, no credit card,
-  5/5 e2e green through them (ephemeral URLs, documented)
+- **Live deployment (Render, free tier, permanent URL)**: frontend at
+  `https://safecity-1-rvk7.onrender.com`, backend at
+  `https://safecity-6xje.onrender.com` — $0, no credit card, managed Postgres + Redis,
+  migrations + demo seed run on every boot, SPA rewrite rule, CSP derived from the API
+  URL, Google OAuth working (earlier demonstrated through ephemeral Cloudflare quick
+  tunnels `lamb-lips-diamonds-regard` / `activists-verse-fascinating-chen`, 5/5 e2e
+  green through them)
 - **Monitoring**: Prometheus + Grafana stack running; both scrape targets `up`
   (prometheus self + backend `/api/metrics/`); Grafana healthy; screenshots captured
   in `evidence/monitoring/`

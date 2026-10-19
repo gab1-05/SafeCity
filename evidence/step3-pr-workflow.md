@@ -9,16 +9,16 @@ before merge (no fabricated results; failures and their fixes are recorded).
 - URL: https://github.com/gab1-05/SafeCity/pull/19
 - Base `develop` ← head `fix/ci-green-and-docs`
 - Head SHAs (3 pushes, each re-ran checks):
-  - `39013a2` — initial (docker-ci trivy pin, a11y marker names, axe dep, docs)
-  - `52b047e` — e2e CORS origin, trivy-action v0.36.0, playwright baseURL default
-  - `13b56a9` — notification-bell a11y fix
-- Final result on `13b56a9`: backend-ci ✅, frontend-ci ✅, docker-ci ✅,
+  - `18ce1e2` — initial (docker-ci trivy pin, a11y marker names, axe dep, docs)
+  - `2b1bf10` — e2e CORS origin, trivy-action v0.36.0, playwright baseURL default
+  - `e95f8ab` — notification-bell a11y fix
+- Final result on `e95f8ab`: backend-ci ✅, frontend-ci ✅, docker-ci ✅,
   e2e ✅, k8s-validate ✅ (PR event; push-event duplicates also green)
-- Merged: `675ce81` (merge commit on `develop`)
+- Merged: `f70da24` (merge commit on `develop`)
 
 ### Failures seen and fixed (honest log)
 
-1. **Run on `39013a2` — docker-ci failed at "Set up job":**
+1. **Run on `18ce1e2` — docker-ci failed at "Set up job":**
    `Unable to resolve action aquasecurity/setup-trivy@v0.2.1`.
    Root cause: trivy-action v0.28.0 hardcodes `uses: aquasecurity/setup-trivy@v0.2.1`,
    and that upstream tag no longer exists (their repo now only carries v0.2.6+).
@@ -27,7 +27,7 @@ before merge (no fabricated results; failures and their fixes are recorded).
    still-valid setup-trivy ref (v0.2.6 commit SHA). The earlier v0.2.0 pin had a
    different, real defect (bundled trivy 0.21 cannot emit SARIF).
 
-2. **Run on `39013a2` — e2e failed (3 login-dependent tests):**
+2. **Run on `18ce1e2` — e2e failed (3 login-dependent tests):**
    citizen login, admin login and the dashboard a11y test all timed out waiting for
    the auth token in localStorage.
    Root cause: the workflow runs the backend with `config.settings.test`, whose
@@ -37,7 +37,7 @@ before merge (no fabricated results; failures and their fixes are recorded).
    Fix: set `CORS_ALLOWED_ORIGINS: http://localhost:5174,http://127.0.0.1:5174` in
    `.github/workflows/e2e.yml` job env.
 
-3. **Run on `52b047e` — e2e 4/5 (dashboard a11y `button-name`, 1 node):**
+3. **Run on `2b1bf10` — e2e 4/5 (dashboard a11y `button-name`, 1 node):**
    The notification bell in `AppLayout` was a `<button>` (Bell icon, no text)
    nested inside a `<Link>` carrying the aria-label. The label names the link, not
    the inner button. It passed locally because the aged dev DB had unread
@@ -51,12 +51,12 @@ before merge (no fabricated results; failures and their fixes are recorded).
 ## PR #2 — develop → main (promotion)
 
 - URL: https://github.com/gab1-05/SafeCity/pull/20
-- Base `main` ← head `develop` (`675ce81`)
+- Base `main` ← head `develop` (`f70da24`)
 - Result on the PR: backend-ci ✅, frontend-ci ✅, docker-ci ✅, e2e ✅,
   k8s-validate ✅ (PR event + develop-push duplicates)
-- Merged: `3994959` (merge commit on `main`)
+- Merged: `99e9d77` (merge commit on `main`)
 
-## Post-merge verification on `main` (push event, head `3994959`)
+## Post-merge verification on `main` (push event, head `99e9d77`)
 
 | Workflow | Event | Conclusion | Notes |
 |----------|-------|------------|-------|

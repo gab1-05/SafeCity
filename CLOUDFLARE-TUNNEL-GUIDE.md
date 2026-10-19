@@ -1,5 +1,7 @@
 # SafeCity — Free Public Deployment with Cloudflare Tunnel
 
+> **Note:** The permanent live deployment now runs on **Render** (free tier) — see [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md) Part 1: frontend at <https://safecity-1-rvk7.onrender.com>, backend at <https://safecity-6xje.onrender.com>. This guide remains useful for temporarily exposing a **local** stack at $0.
+
 This guide shows how to expose your local SafeCity development stack to the public internet at **$0 cost** — no cloud account, no credit card required — using Cloudflare quick tunnels.
 
 > ⚠️ **Quick tunnels are ephemeral** — URLs change every time `cloudflared` is restarted. This is perfect for demos/vivas but not for persistent hosting. For a permanent URL, add a domain to Cloudflare and use `cloudflared` as a Windows service.

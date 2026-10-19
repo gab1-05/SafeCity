@@ -70,7 +70,7 @@ Roles are a single value per user (`citizen`, `volunteer`, `department_staff`,
 change them, and self-registration can never produce anything but `citizen`.
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/users/$USER_ID/role/ \
+curl -X POST http://localhost:18081/api/v1/users/$USER_ID/role/ \
   -H "Authorization: Bearer $ADMIN_ACCESS" \
   -H "Content-Type: application/json" \
   -d '{"role": "department_staff", "department": "'"$WATER_DEPT_ID"'"}'
@@ -82,7 +82,7 @@ an empty queue. This is the single most common setup mistake.
 ### Deactivating a user
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/users/$USER_ID/deactivate/ \
+curl -X POST http://localhost:18081/api/v1/users/$USER_ID/deactivate/ \
   -H "Authorization: Bearer $ADMIN_ACCESS"
 ```
 
@@ -113,12 +113,12 @@ Announcements are the one publishing surface, and they are full CRUD.
 
 ```bash
 # Create (draft)
-curl -X POST http://localhost:8080/api/v1/announcements/ \
+curl -X POST http://localhost:18081/api/v1/announcements/ \
   -H "Authorization: Bearer $ADMIN_ACCESS" -H "Content-Type: application/json" \
   -d '{"title":"Water supply interruption — Ward 4","body":"...","audience":"public","is_pinned":true}'
 
 # Publish
-curl -X POST http://localhost:8080/api/v1/announcements/$ID/publish/ \
+curl -X POST http://localhost:18081/api/v1/announcements/$ID/publish/ \
   -H "Authorization: Bearer $ADMIN_ACCESS"
 ```
 
@@ -312,11 +312,11 @@ state because of an AI suggestion.
 
 ```bash
 # Ask for suggestions (authority only)
-curl -X POST http://localhost:8080/api/v1/ai/incidents/$ID/suggest/ \
+curl -X POST http://localhost:18081/api/v1/ai/incidents/$ID/suggest/ \
   -H "Authorization: Bearer $ADMIN_ACCESS"
 
 # Record what you did with one
-curl -X POST http://localhost:8080/api/v1/ai/recommendations/$REC_ID/decide/ \
+curl -X POST http://localhost:18081/api/v1/ai/recommendations/$REC_ID/decide/ \
   -H "Authorization: Bearer $ADMIN_ACCESS" -H "Content-Type: application/json" \
   -d '{"decision": "accepted"}'   # or "edited" / "rejected"
 ```
@@ -368,8 +368,8 @@ for example a purely demonstrative instance.
 ### Health checks
 
 ```bash
-curl -s http://localhost:8080/api/health/      # liveness, no dependencies
-curl -s http://localhost:8080/api/readiness/   # 503 with a per-dependency map if degraded
+curl -s http://localhost:18081/api/health/      # liveness, no dependencies
+curl -s http://localhost:18081/api/readiness/   # 503 with a per-dependency map if degraded
 ```
 
 ---

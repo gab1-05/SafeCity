@@ -57,8 +57,8 @@ Page-number pagination, `PAGE_SIZE = 20`, `max_page_size = 100`.
 ```json
 {
   "count": 137,
-  "next": "http://localhost:8080/api/v1/incidents/?page=3",
-  "previous": "http://localhost:8080/api/v1/incidents/?page=1",
+  "next": "http://localhost:18081/api/v1/incidents/?page=3",
+  "previous": "http://localhost:18081/api/v1/incidents/?page=1",
   "results": []
 }
 ```
@@ -303,12 +303,12 @@ suggestions, a recommendation id so the human decision can be recorded.
 
 ```bash
 # Register
-curl -s -X POST http://localhost:8080/api/v1/auth/register/ \
+curl -s -X POST http://localhost:18081/api/v1/auth/register/ \
   -H "Content-Type: application/json" \
   -d '{"email":"new.citizen@example.com","password":"Str0ng-Pass!23","first_name":"New","last_name":"Citizen"}'
 
 # Log in
-curl -s -X POST http://localhost:8080/api/v1/auth/token/ \
+curl -s -X POST http://localhost:18081/api/v1/auth/token/ \
   -H "Content-Type: application/json" \
   -d '{"email":"citizen1@safecity.local","password":"Citizen@12345!"}'
 ```
@@ -324,7 +324,7 @@ Store `access` and send it as `Authorization: Bearer <access>`.
 ### 3.2 Report an incident
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/incidents/ \
+curl -s -X POST http://localhost:18081/api/v1/incidents/ \
   -H "Authorization: Bearer $ACCESS" \
   -H "Content-Type: application/json" \
   -d '{
@@ -346,7 +346,7 @@ the SLA deadline. The returned `reference_number` looks like `SC-MUM-2026-000042
 
 ```bash
 # Verify (department staff / admin)
-curl -s -X POST http://localhost:8080/api/v1/incidents/$ID/status/ \
+curl -s -X POST http://localhost:18081/api/v1/incidents/$ID/status/ \
   -H "Authorization: Bearer $ACCESS" \
   -H "Content-Type: application/json" \
   -d '{"to_status": "verified", "note": "Confirmed on site."}'
@@ -367,13 +367,13 @@ layer include `invalid_transition`, `anonymous_disabled`, `forbidden_department`
 
 ```bash
 # Assign (workload-aware auto-selection if assignee is omitted)
-curl -s -X POST http://localhost:8080/api/v1/incidents/$ID/assign/ \
+curl -s -X POST http://localhost:18081/api/v1/incidents/$ID/assign/ \
   -H "Authorization: Bearer $ACCESS" \
   -H "Content-Type: application/json" \
   -d '{"assignee": "<staff-uuid>", "note": "Roads crew 2"}'
 
 # Resolve with evidence
-curl -s -X POST http://localhost:8080/api/v1/incidents/$ID/status/ \
+curl -s -X POST http://localhost:18081/api/v1/incidents/$ID/status/ \
   -H "Authorization: Bearer $ACCESS" \
   -H "Content-Type: application/json" \
   -d '{"to_status": "resolved", "note": "Pothole filled and levelled.",
@@ -383,7 +383,7 @@ curl -s -X POST http://localhost:8080/api/v1/incidents/$ID/status/ \
 ### 3.5 Citizen confirms
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/incidents/$ID/confirm/ \
+curl -s -X POST http://localhost:18081/api/v1/incidents/$ID/confirm/ \
   -H "Authorization: Bearer $ACCESS" \
   -H "Content-Type: application/json" \
   -d '{"rating": 5, "comment": "Fixed within two days. Thank you."}'
@@ -393,10 +393,10 @@ curl -s -X POST http://localhost:8080/api/v1/incidents/$ID/confirm/ \
 
 ```bash
 # By reference number
-curl -s http://localhost:8080/api/v1/incidents/track/SC-MUM-2026-000042/
+curl -s http://localhost:18081/api/v1/incidents/track/SC-MUM-2026-000042/
 
 # By unguessable token
-curl -s http://localhost:8080/api/v1/incidents/public/3f9c1e2a-..../
+curl -s http://localhost:18081/api/v1/incidents/public/3f9c1e2a-..../
 ```
 
 Both return a redacted projection: no reporter identity, no private address, no internal
@@ -405,11 +405,11 @@ notes, and coordinates jittered by at least `PUBLIC_COORD_JITTER_METERS` (defaul
 ### 3.7 AI suggestion with a recorded human decision
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/ai/incidents/$ID/suggest/ \
+curl -s -X POST http://localhost:18081/api/v1/ai/incidents/$ID/suggest/ \
   -H "Authorization: Bearer $ACCESS"
 
 # ... read the recommendations, then record what you did with one ...
-curl -s -X POST http://localhost:8080/api/v1/ai/recommendations/$REC_ID/decide/ \
+curl -s -X POST http://localhost:18081/api/v1/ai/recommendations/$REC_ID/decide/ \
   -H "Authorization: Bearer $ACCESS" \
   -H "Content-Type: application/json" \
   -d '{"decision": "edited"}'
@@ -421,8 +421,8 @@ suggestion explainable in review.
 ### 3.8 Health checks
 
 ```bash
-curl -s http://localhost:8080/api/health/     # {"status":"ok","service":"safecity-backend"}
-curl -s http://localhost:8080/api/readiness/  # 200 or 503 with a per-dependency map
+curl -s http://localhost:18081/api/health/     # {"status":"ok","service":"safecity-backend"}
+curl -s http://localhost:18081/api/readiness/  # 200 or 503 with a per-dependency map
 ```
 
 ---

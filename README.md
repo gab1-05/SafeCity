@@ -9,6 +9,25 @@ SafeCity is a Smart City Incident Management and Civic Response Platform. Citize
 
 ---
 
+## 🌐 Live Deployment (Render — Free Tier)
+
+| Service | URL |
+|---|---|
+| **Frontend (SPA)** | https://safecity-1-rvk7.onrender.com |
+| **Backend API** | https://safecity-6xje.onrender.com/api/v1/ |
+| **Health** | https://safecity-6xje.onrender.com/api/health/ |
+| **OpenAPI / Swagger** | https://safecity-6xje.onrender.com/api/schema/swagger/ |
+| **Meta config** (categories, map, OAuth) | https://safecity-6xje.onrender.com/api/meta/config/ |
+
+- **Stack:** backend web service (Daphne ASGI from `backend/Dockerfile`) + static site (React build) + managed **PostgreSQL** + **Redis**, all on Render free tier.
+- **Seeded demo data:** `migrate` and `seed_demo_data` run in the container `CMD` on every boot (Render's Shell and Pre-Deploy Command are paid features), so the demo credentials below work on the live site with all reference data and incidents present.
+- **Google sign-in** works on the live site (Google Cloud Console → *Authorized JavaScript origins* includes `https://safecity-1-rvk7.onrender.com`).
+- **⚠️ Free-tier cold start:** the instance spins down after ~15 minutes without traffic — the first request afterwards takes up to ~50 s, then it stays warm. The Postgres free database expires on **2026-11-17** and must be upgraded or migrated before then.
+
+Full setup instructions: [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md).
+
+---
+
 ## Functionality by role
 
 ### Public (no login)
@@ -446,6 +465,46 @@ SafeCity/
 
 ## Production Deployment
 
+### Render (current live deployment — free tier)
+
+Two Render services back the live URLs in the *Live Deployment* section above:
+
+**1. Web service (backend)**
+
+| Setting | Value |
+|---|---|
+| Docker Build Context Directory | `backend` |
+| Dockerfile Path | `backend/Dockerfile` |
+| Start command | *(in the Dockerfile `CMD`)* `python manage.py migrate --noinput && python manage.py seed_demo_data && daphne -b 0.0.0.0 -p 8000 config.asgi:application` |
+
+Key environment variables (Shell commands are a paid feature on Render, so all startup work lives in the `CMD`):
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings.prod
+SECRET_KEY=<rotate>
+DEBUG=false
+ALLOWED_HOSTS=safecity-6xje.onrender.com
+CORS_ALLOWED_ORIGINS=https://safecity-1-rvk7.onrender.com,http://localhost:5174
+CSRF_TRUSTED_ORIGINS=https://safecity-6xje.onrender.com,https://safecity-1-rvk7.onrender.com,http://localhost:5174
+DATABASE_URL=postgresql://…            # Render Postgres (Singapore, free; expires 2026-11-17)
+REDIS_URL=redis://…                    # Render Key Value — optional, see note
+CELERY_BROKER_URL=redis://…/1
+GOOGLE_CLIENT_ID=<google-oauth-client-id>
+WEB_CONCURRENCY=1
+```
+
+> **Redis is optional:** with no `REDIS_URL`, the settings fall back to LocMem cache, the in-memory channel layer and eager Celery (`backend/config/settings/base.py`), so core CRUD/auth still work. Set `REDIS_URL` for shared caching, WebSockets and real Celery.
+
+**2. Static site (frontend)**
+
+| Setting | Value |
+|---|---|
+| Build command | `npm run build` (with `VITE_API_BASE_URL`, `VITE_WS_URL` env vars) |
+| Publish directory | `dist` |
+| Rewrite rule | `/*` → `/index.html` (**Rewrite**, required for SPA deep links such as `/report`) |
+
+The CSP is **not** hardcoded: `vite.config.ts` derives the extra `connect-src` origins from `VITE_API_BASE_URL` / `VITE_WS_URL` at build time, so the deployed SPA can always reach its own API.
+
 ### Docker Compose (Production)
 ```bash
 # Use production compose file
@@ -599,7 +658,9 @@ See `SECURITY.md`. Key points:
 - `docs/DEMO-SCRIPT.md` — Demonstration script
 - `docs/VIVA-QA.md` — Evaluation support
 
-### Cloudflare Tunnel (Free Public Access — No Cloud Account)
+### Cloudflare Tunnel (Alternative — Ephemeral Public Access, No Cloud Account)
+
+> The deployment now lives permanently on **Render** (see *Live Deployment* at the top and [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md)). The quick-tunnel flow below remains useful for exposing a **local** stack temporarily.
 
 Expose your local stack to the public internet at **$0** using Cloudflare quick tunnels:
 
@@ -645,6 +706,21 @@ npx playwright test smoke.spec.ts a11y.spec.ts
 ---
 
 MIT — see `LICENSE`.
+
+---
+
+## Contributors
+
+| Contributor | GitHub | Email (commit attribution) | Focus |
+|---|---|---|---|
+| **GABRIEL P** (owner) | [@gab1-05](https://github.com/gab1-05) | `gab1.gab05.05@gmail.com` | Backend, auth/RBAC, CI/CD, security hardening, deployment |
+| **Hazel Sanctis** | [@vanessa310107](https://github.com/vanessa310107) | `sanctishazel@gmail.com` | Documentation, deployment guides, audit/compliance reports, frontend UI & accessibility |
+| **Dherazlin Jebisha** | [@Dherazlin](https://github.com/Dherazlin) | `dherazlinjb06@gmail.com` | Observability (Prometheus/Grafana), accessibility fixes, CI, operational fixes |
+| **Joe Godwin** | [@joegodwin04](https://github.com/joegodwin04) | `godwinjoe87@gmail.com` | Monitoring stack, Ansible/Terraform, test coverage, docs |
+
+Per-person breakdowns: [`CONTRIBUTIONS_REPORT.md`](CONTRIBUTIONS_REPORT.md), [`HAZEL-CONTRIBUTION.md`](HAZEL-CONTRIBUTION.md), [`DHERAZLIN-CONTRIBUTION.md`](DHERAZLIN-CONTRIBUTION.md), [`JOE-CONTRIBUTION.md`](JOE-CONTRIBUTION.md).
+
+> For a commit to link to a contributor's GitHub profile, that email must be **verified** on their account (GitHub → Settings → Emails). Dependabot dependency-bump commits are attributed to the repository owner.
 
 ---
 
