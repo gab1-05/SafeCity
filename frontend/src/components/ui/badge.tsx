@@ -7,15 +7,15 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary/10 text-primary border border-primary/20",
-        secondary: "bg-secondary text-secondary-foreground border border-secondary/20",
-        success: "bg-success/10 text-success border border-success/20",
-        warning: "bg-warning/10 text-warning border border-warning/20",
-        danger: "bg-danger/10 text-danger border border-danger/20",
+        default: "bg-primary text-primary-foreground border border-primary/20 shadow-sm",
+        secondary: "bg-secondary text-secondary-foreground border border-secondary/20 shadow-sm",
+        success: "bg-success text-success-foreground border border-success/20 shadow-sm",
+        warning: "bg-warning text-warning-foreground border border-warning/20 shadow-sm",
+        danger: "bg-danger text-danger-foreground border border-danger/20 shadow-sm",
         outline: "border border-border text-foreground hover:bg-accent",
         ghost: "text-muted-foreground hover:bg-accent hover:text-foreground",
         brand:
-          "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-brand-sm",
+          "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-brand-sm",
       },
       size: {
         sm: "px-2 py-0.5 text-[10px]",

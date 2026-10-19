@@ -133,7 +133,7 @@ export function AnalyticsPage() {
               <Line
                 type="monotone"
                 dataKey="total"
-                stroke="#1b6f8b"
+                stroke="#ec4899"
                 name="Submitted"
                 strokeWidth={2}
               />
@@ -190,7 +190,7 @@ export function AnalyticsPage() {
                   tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)}
                 />
                 <ChartTooltip />
-                <Bar dataKey="total" fill="#1b6f8b" name="Incidents" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="total" fill="#ec4899" name="Incidents" radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -208,7 +208,7 @@ export function AnalyticsPage() {
               <XAxis dataKey="name" fontSize={11} />
               <YAxis fontSize={12} allowDecimals={false} />
               <ChartTooltip />
-              <Bar dataKey="total" fill="#1b6f8b" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="total" fill="#ec4899" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

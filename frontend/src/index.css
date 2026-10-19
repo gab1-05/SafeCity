@@ -5,18 +5,18 @@
 @layer base {
   :root {
     /* ── Color Tokens ── */
-    /* Primary Brand - SafeCity Blue/Teal */
-    --color-primary-50: 187 100% 97%;
-    --color-primary-100: 187 100% 93%;
-    --color-primary-200: 187 100% 85%;
-    --color-primary-300: 187 90% 72%;
-    --color-primary-400: 187 85% 58%;
-    --color-primary-500: 187 85% 45%;
-    --color-primary-600: 187 80% 35%;
-    --color-primary-700: 187 75% 28%;
-    --color-primary-800: 187 70% 22%;
-    --color-primary-900: 187 65% 18%;
-    --color-primary-950: 187 60% 12%;
+    /* Primary Brand - Vibrant Sky Blue */
+    --color-primary-50: 217 91% 97%;
+    --color-primary-100: 217 91% 93%;
+    --color-primary-200: 217 91% 85%;
+    --color-primary-300: 217 91% 72%;
+    --color-primary-400: 217 91% 58%;
+    --color-primary-500: 217 91% 45%;
+    --color-primary-600: 217 91% 35%;
+    --color-primary-700: 217 91% 28%;
+    --color-primary-800: 217 91% 22%;
+    --color-primary-900: 217 91% 18%;
+    --color-primary-950: 217 91% 12%;
 
     /* Semantic Colors */
     --background: 0 0% 100%;
@@ -151,6 +151,19 @@
     --input: 205 20% 24%;
     --ring: 187 85% 55%;
 
+    /* Primary Brand - Sky Blue */
+    --color-primary-50: 217 91% 97%;
+    --color-primary-100: 217 91% 93%;
+    --color-primary-200: 217 91% 85%;
+    --color-primary-300: 217 91% 72%;
+    --color-primary-400: 217 91% 58%;
+    --color-primary-500: 217 91% 45%;
+    --color-primary-600: 217 91% 35%;
+    --color-primary-700: 217 91% 28%;
+    --color-primary-800: 217 91% 22%;
+    --color-primary-900: 217 91% 18%;
+    --color-primary-950: 217 91% 12%;
+
     --success-muted: 142 40% 12%;
     --warning-muted: 38 60% 12%;
     --danger-muted: 0 40% 10%;
@@ -187,6 +200,19 @@
       --border: 205 20% 20%;
       --input: 205 20% 24%;
       --ring: 187 85% 55%;
+
+      /* Primary Brand - Sky Blue */
+      --color-primary-50: 217 91% 97%;
+      --color-primary-100: 217 91% 93%;
+      --color-primary-200: 217 91% 85%;
+      --color-primary-300: 217 91% 72%;
+      --color-primary-400: 217 91% 58%;
+      --color-primary-500: 217 91% 45%;
+      --color-primary-600: 217 91% 35%;
+      --color-primary-700: 217 91% 28%;
+      --color-primary-800: 217 91% 22%;
+      --color-primary-900: 217 91% 18%;
+      --color-primary-950: 217 91% 12%;
     }
   }
 

@@ -158,7 +158,7 @@ export function AuthorityDashboard() {
                 <XAxis dataKey="date" tickFormatter={(v: string) => v?.slice(5)} fontSize={12} />
                 <YAxis fontSize={12} allowDecimals={false} />
                 <ChartTooltip />
-                <Bar dataKey="total" fill="#1b6f8b" radius={[3, 3, 0, 0]} name="Submitted" />
+                <Bar dataKey="total" fill="#ec4899" radius={[3, 3, 0, 0]} name="Submitted" />
                 <Bar dataKey="resolved" fill="#16a34a" radius={[3, 3, 0, 0]} name="Resolved" />
               </BarChart>
             </ResponsiveContainer>
@@ -183,7 +183,7 @@ export function AuthorityDashboard() {
                   tickFormatter={(v: string) => (v.length > 16 ? `${v.slice(0, 15)}…` : v)}
                 />
                 <ChartTooltip />
-                <Bar dataKey="total" fill="#1b6f8b" radius={[0, 3, 3, 0]} name="Incidents" />
+                <Bar dataKey="total" fill="#ec4899" radius={[0, 3, 3, 0]} name="Incidents" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

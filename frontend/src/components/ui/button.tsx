@@ -7,15 +7,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90",
-        danger: "bg-danger text-danger-foreground hover:bg-danger/90 shadow-sm hover:shadow-md",
-        success: "bg-success text-success-foreground hover:bg-success/90 shadow-sm hover:shadow-md",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-2 hover:underline",
+        default: "bg-primary text-primary-foreground hover:bg-primary-600 shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary-600 shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+        danger: "bg-danger text-danger-foreground hover:bg-danger-600 shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+        success: "bg-success text-success-foreground hover:bg-success-600 shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+        warning: "bg-warning text-warning-foreground hover:bg-warning-600 shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-all active:scale-[0.98]",
+        ghost: "hover:bg-accent hover:text-accent-foreground transition-all active:scale-[0.98]",
+        link: "text-primary underline-offset-2 hover:underline transition-colors",
         brand:
-          "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70 shadow-brand-sm hover:shadow-brand-md",
+          "bg-gradient-to-r from-primary via-secondary to-primary/80 text-primary-foreground hover:from-primary/90 hover:to-primary/70 shadow-brand-sm hover:shadow-brand-lg transition-all active:scale-[0.98]",
       },
       size: {
         default: "h-10 px-4 py-2",

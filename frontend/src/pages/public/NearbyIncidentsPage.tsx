@@ -55,7 +55,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "#6b7280",
 };
 
-const FALLBACK_COLOR = "#1b6f8b";
+const FALLBACK_COLOR = "#ec4899";
 
 function colorForCategory(slug: string | undefined): string {
   if (!slug) return FALLBACK_COLOR;

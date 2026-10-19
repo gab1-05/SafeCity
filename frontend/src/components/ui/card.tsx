@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "elevated" | "outlined" | "brand" | "interactive";
+  variant?: "default" | "elevated" | "outlined" | "brand" | "brand-filled" | "success" | "warning" | "danger" | "interactive";
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
@@ -16,6 +16,10 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
           "border-border shadow-md": variant === "elevated",
           "border-border/50 shadow-lg": variant === "outlined",
           "border-primary/20 shadow-brand-sm": variant === "brand",
+          "border-primary shadow-lg shadow-primary/20": variant === "brand-filled",
+          "border-success/20 bg-success/5 shadow-sm": variant === "success",
+          "border-warning/20 bg-warning/5 shadow-sm": variant === "warning",
+          "border-danger/20 bg-danger/5 shadow-sm": variant === "danger",
           "border-border hover:shadow-lg hover:border-primary/30": variant === "interactive",
         },
         className,
