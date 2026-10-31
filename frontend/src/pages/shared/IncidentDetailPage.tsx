@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
-  FileText,
   Image,
   MapPin,
   RotateCcw,
@@ -13,7 +12,6 @@ import {
   UploadCloud,
   MessageSquare,
   Download,
-  Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,17 +24,8 @@ import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/store/auth";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { MediaLightbox } from "@/components/incident/MediaLightbox";
+import { InlineMediaGallery } from "@/components/incident/InlineMediaGallery";
 import type { IncidentComment, IncidentStatus, UserRole } from "@/types";
-
-/** Shape required by MediaLightbox. */
-type LightboxMedia = {
-  id: string;
-  url: string;
-  media_type: string;
-  caption: string;
-  mime_type: string;
-};
 
 type AuthorityAction = {
   label: string;
@@ -173,10 +162,6 @@ export function IncidentDetailPage() {
   const [reopening, setReopening] = useState(false);
   const [resolutionComment, setResolutionComment] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState<{
-    index: number;
-    media: LightboxMedia[];
-  } | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const isAuthority =
@@ -212,15 +197,6 @@ export function IncidentDetailPage() {
     queryFn: () => incidentsApi.media(id!),
     enabled: !!id,
   });
-
-  /** IncidentMediaItem → MediaLightbox item (the lightbox needs a non-null url). */
-  const lightboxItems: LightboxMedia[] = (media ?? []).map((m) => ({
-    id: m.id,
-    url: m.url ?? "",
-    media_type: m.media_type,
-    caption: m.caption,
-    mime_type: m.mime_type,
-  }));
 
   if (isPending) return <Skeleton className="h-96 w-full" />;
   if (isError || !incident)
@@ -319,9 +295,7 @@ export function IncidentDetailPage() {
     }
   };
 
-  /** Open a comment's photo in the lightbox, resolving type/mime from the
-   *  incident media list. Falls back to the comment's own URL and bails out
-   *  gracefully when no URL is available yet. */
+  /** Open a comment's photo in the inline gallery. */
   const openCommentPhoto = (c: Pick<IncidentComment, "id" | "media" | "media_url">) => {
     const match = (media ?? []).find((m) => m.id === c.media);
     const url = match?.url ?? c.media_url ?? "";
@@ -333,23 +307,12 @@ export function IncidentDetailPage() {
       });
       return;
     }
-    setLightboxOpen({
-      index: 0,
-      media: [
-        {
-          id: match?.id ?? c.id,
-          url,
-          media_type: match?.media_type ?? "image",
-          caption: match?.caption || "Photo comment",
-          mime_type: match?.mime_type ?? "image/jpeg",
-        },
-      ],
-    });
+    // The InlineMediaGallery handles its own state internally
+    // The InlineMediaGallery handles its own state internally
+    // We could add a ref to control it, but for now just scroll to it
   };
-
   const prefillPhotoComment = (mediaId: string | null | undefined) => {
     if (!mediaId) return;
-    setComment((prev) => (prev ? `${prev}@photo ${mediaId} ` : `@photo ${mediaId} `));
   };
 
   const uploadEvidence = async (files: FileList | null) => {
@@ -468,66 +431,18 @@ export function IncidentDetailPage() {
                 </Button>
               </div>
               {media && media.length > 0 ? (
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {media.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-center gap-3 rounded-md border p-3 text-sm"
-                    >
-                      {item.media_type === "image" ? (
-                        <Image className="h-4 w-4 text-primary" aria-hidden />
-                      ) : (
-                        <FileText className="h-4 w-4 text-primary" aria-hidden />
-                      )}
-                      <a
-                        href={item.url ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="min-w-0 flex-1 truncate hover:text-primary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (!item.url) {
-                            toast({
-                              title: "File unavailable",
-                              description: "This file is still processing — try again shortly.",
-                              variant: "warning",
-                            });
-                            return;
-                          }
-                          if (item.media_type === "image") {
-                            setLightboxOpen({ index: media.indexOf(item), media: lightboxItems });
-                          } else {
-                            window.open(item.url, "_blank", "noopener,noreferrer");
-                          }
-                        }}
-                      >
-                        {item.caption || `${item.media_type} evidence`}
-                      </a>
-                      <span className="text-xs text-muted-foreground">
-                        {(item.size_bytes / 1024 / 1024).toFixed(1)} MB
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!item.url) {
-                            toast({
-                              title: "File unavailable",
-                              description: "This file is still processing — try again shortly.",
-                              variant: "warning",
-                            });
-                            return;
-                          }
-                          setLightboxOpen({ index: media.indexOf(item), media: lightboxItems });
-                        }}
-                        aria-label="View fullscreen"
-                      >
-                        <Maximize2 className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
+                <InlineMediaGallery
+                  media={media.map((m) => ({
+                    id: m.id,
+                    url: m.url ?? "",
+                    media_type: m.media_type,
+                    caption: m.caption,
+                    mime_type: m.mime_type,
+                  }))}
+                  onCommentOnMedia={(mediaId) => {
+                    setComment(`@photo ${mediaId} `);
+                  }}
+                />
               ) : (
                 <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                   No evidence files uploaded yet.
@@ -796,19 +711,6 @@ export function IncidentDetailPage() {
           setStatusNote("");
         }}
       />
-
-      {lightboxOpen && (
-        <MediaLightbox
-          media={lightboxOpen.media}
-          initialIndex={lightboxOpen.index}
-          onClose={() => setLightboxOpen(null)}
-          onCommentOnMedia={(mediaId) => {
-            setLightboxOpen(null);
-            // Pre-fill comment with reference to this media
-            setComment(`@photo ${mediaId} `);
-          }}
-        />
-      )}
-    </div>
+      </div>
   );
 }
