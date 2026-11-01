@@ -33,7 +33,7 @@ terraform {
       source = "hashicorp/aws"
       # Pinned to a minor series, not to an exact patch: patch releases are
       # backwards-compatible bug fixes, while a minor bump can change defaults.
-      version = "~> 5.60"
+      version = "~> 6.71"
     }
 
     random = {
